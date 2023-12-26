@@ -8,7 +8,7 @@ import (
 
 var inputFileFlag = flag.String("i", "", "TODO: usage")
 
-var tokenTypeUnknown = Token{
+var tokenTypeUnknown = &Token{
 	tokenType: TOKEN_TYPE_UNKNOWN,
 }
 
@@ -46,7 +46,7 @@ func main() {
 
 	log("  codeToCompile len=%d", len(codeToCompile))
 
-	tokens, err := getTokens(codeToCompile)
+	tokens, err := GetTokens(codeToCompile)
 
 	log("After getTokens, len=%d", len(tokens))
 	for _, token := range tokens {

@@ -1,5 +1,7 @@
-func main() {
-    val x Int32 = 5
+func min(a Int, b Int) Int {
+    if (a < b) {
+      return a
+    }
 
-    val x = 5
+    return b
 }

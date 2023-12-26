@@ -17,6 +17,9 @@ const (
 	TOKEN_TYPE_CURLY_BRACKET_OPEN
 	TOKEN_TYPE_CURLY_BRACKET_CLOSE
 	TOKEN_TYPE_EQUALS
+	TOKEN_TYPE_LESS_THAN
+	TOKEN_TYPE_COMMA
+	TOKEN_TYPE_KEYWORD_FUNC
 )
 
 type Token struct {
@@ -51,16 +54,16 @@ func (t TokenType) String() string {
 	return "UNSUPPORTED"
 }
 
-type tokenGetter func(string, int) Token
+type tokenGetter func(string, int) *Token
 
 func regexTokenGetter(tokenType TokenType, regex *regexp.Regexp) tokenGetter {
-	return func(code string, offset int) Token {
+	return func(code string, offset int) *Token {
 		return getTokenByRegexp(code, offset, tokenType, regex)
 	}
 }
 
 func runeTokenGetter(tokenType TokenType, rune rune) tokenGetter {
-	return func(code string, offset int) Token {
+	return func(code string, offset int) *Token {
 		return getTokenByRune(code, offset, tokenType, rune)
 	}
 }
@@ -70,7 +73,7 @@ func (t Token) String() string {
 	return fmt.Sprintf("%-20s %3d..%2d   %-10q", t.tokenType, t.start, t.end, t.value)
 }
 
-func getNextToken(sourceCode string, offset int) Token {
+func getNextToken(sourceCode string, offset int) *Token {
 	tokenGetters := []tokenGetter{
 		regexTokenGetter(TOKEN_TYPE_WHITESPACE, regexp.MustCompile(`^\s+`)),
 		regexTokenGetter(TOKEN_TYPE_IDENTIFIER, regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9]*`)),
@@ -81,6 +84,8 @@ func getNextToken(sourceCode string, offset int) Token {
 		runeTokenGetter(TOKEN_TYPE_CURLY_BRACKET_OPEN, '{'),
 		runeTokenGetter(TOKEN_TYPE_CURLY_BRACKET_CLOSE, '}'),
 		runeTokenGetter(TOKEN_TYPE_EQUALS, '='),
+		runeTokenGetter(TOKEN_TYPE_LESS_THAN, '<'),
+		runeTokenGetter(TOKEN_TYPE_COMMA, ','),
 	}
 
 	for _, tokenGetter := range tokenGetters {
@@ -94,14 +99,14 @@ func getNextToken(sourceCode string, offset int) Token {
 	return tokenTypeUnknown
 }
 
-func getTokenByRune(sourceCode string, offset int, tokenType TokenType, rune rune) Token {
+func getTokenByRune(sourceCode string, offset int, tokenType TokenType, rune rune) *Token {
 	firstRune := getFirstRune(sourceCode)
 
 	if firstRune != rune {
 		return tokenTypeUnknown
 	}
 
-	return Token{
+	return &Token{
 		value:     string(rune),
 		tokenType: tokenType,
 		start:     offset,
@@ -109,7 +114,7 @@ func getTokenByRune(sourceCode string, offset int, tokenType TokenType, rune run
 	}
 }
 
-func getTokenByRegexp(sourceCode string, offset int, tokenType TokenType, regex *regexp.Regexp) Token {
+func getTokenByRegexp(sourceCode string, offset int, tokenType TokenType, regex *regexp.Regexp) *Token {
 	loc := regex.FindStringIndex(sourceCode)
 
 	if loc == nil {
@@ -124,7 +129,7 @@ func getTokenByRegexp(sourceCode string, offset int, tokenType TokenType, regex 
 		panic("start != 0")
 	}
 
-	return Token{
+	return &Token{
 		value:     token,
 		tokenType: tokenType,
 		start:     offset,
@@ -132,9 +137,9 @@ func getTokenByRegexp(sourceCode string, offset int, tokenType TokenType, regex 
 	}
 }
 
-func getTokens(code string) ([]Token, error) {
+func GetTokens(code string) ([]*Token, error) {
 	offset := 0
-	tokens := []Token{}
+	tokens := []*Token{}
 
 	for offset < len(code) {
 		token := getNextToken(code[offset:], offset)
@@ -146,7 +151,23 @@ func getTokens(code string) ([]Token, error) {
 		offset = token.end
 	}
 
+	secondPass(tokens)
+
 	return tokens, nil
+}
+
+// TODO: rename.
+var keywords = map[string]TokenType{
+	"func": TOKEN_TYPE_KEYWORD_FUNC,
+}
+
+func secondPass(tokens []*Token) {
+	for _, token := range tokens {
+		tokenType, ok := keywords[token.value]
+		if ok {
+			token.tokenType = tokenType
+		}
+	}
 }
 
 func getFirstRune(str string) rune {
