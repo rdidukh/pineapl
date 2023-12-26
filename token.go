@@ -49,9 +49,15 @@ func (t TokenType) String() string {
 		return "CURLTY_BRACKET_CLOSE"
 	case TOKEN_TYPE_EQUALS:
 		return "EQUALS"
+	case TOKEN_TYPE_KEYWORD_FUNC:
+		return "KEYWORD_FUNC"
+	case TOKEN_TYPE_COMMA:
+		return "COMMA"
+	case TOKEN_TYPE_LESS_THAN:
+		return "LESS_THAN"
 	}
 
-	return "UNSUPPORTED"
+	panic(fmt.Sprintf("Unsupported token type: %d", int(t)))
 }
 
 type tokenGetter func(string, int) *Token
