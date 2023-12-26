@@ -1,5 +1,5 @@
 func main() {
-    val x Int32 = 5;
+    val x Int32 = 5
 
-    val x = 5;
+    val x = 5
 }
