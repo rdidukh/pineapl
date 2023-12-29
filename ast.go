@@ -6,9 +6,9 @@ func ParseExpressions(tokens []*Token) ([]ExpressionParserResult, error) {
 	offset := 0
 	results := []ExpressionParserResult{}
 
-	parsers := oneOf([]expressionParser{
+	parsers := oneOf(
 		functionParser,
-	})
+	)
 
 	for offset < len(tokens) {
 		log("   Iteration offset=%d len=%d", offset, len(tokens))
@@ -26,14 +26,6 @@ func ParseExpressions(tokens []*Token) ([]ExpressionParserResult, error) {
 
 	return results, nil
 }
-
-type tokenCount int
-
-const (
-	TOKEN_COUNT_UNKNOWN tokenCount = iota
-	TOKEN_COUNT_ZERO_OR_ONE
-	TOKEN_COUNT_ONE
-)
 
 type ExpressionParserResult struct {
 	offset int
@@ -89,7 +81,7 @@ func optionalToken(expectedTokenType TokenType) expressionParser {
 	}
 }
 
-func group(parsers []expressionParser) expressionParser {
+func allOf(parsers ...expressionParser) expressionParser {
 	return func(tokens []*Token, offset int) ExpressionParserResult {
 		offset = 0
 		for _, parser := range parsers {
@@ -111,7 +103,7 @@ func group(parsers []expressionParser) expressionParser {
 	}
 }
 
-func oneOf(parsers []expressionParser) expressionParser {
+func oneOf(parsers ...expressionParser) expressionParser {
 	return func(tokens []*Token, offset int) ExpressionParserResult {
 		bestResult := ExpressionParserResult{
 			error: fmt.Errorf("Unexpected token: %s", tokens[0].tokenType),
@@ -134,7 +126,7 @@ func oneOf(parsers []expressionParser) expressionParser {
 	}
 }
 
-var functionParser = group([]expressionParser{
+var functionParser = allOf(
 	requiredToken(TOKEN_TYPE_KEYWORD_FUNC),
 	requiredToken(TOKEN_TYPE_WHITESPACE),
 	requiredToken(TOKEN_TYPE_IDENTIFIER),
@@ -144,5 +136,5 @@ var functionParser = group([]expressionParser{
 	optionalToken(TOKEN_TYPE_WHITESPACE),
 	requiredToken(TOKEN_TYPE_CURLY_BRACKET_OPEN),
 	optionalToken(TOKEN_TYPE_WHITESPACE),
-	requiredToken(TOKEN_TYPE_CURLY_BRACKET_CLOSE)},
+	requiredToken(TOKEN_TYPE_CURLY_BRACKET_CLOSE),
 )
