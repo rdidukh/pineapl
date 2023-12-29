@@ -60,21 +60,25 @@ func main() {
 		errorExit("Token error: %s", err)
 	}
 
-	result := ParseFile(tokens)
+	file, err := ParseFile(tokens)
 
-	log("")
-	log("EXPRESSION PARSER RESULT")
-	printExpressionResult(result)
-	log("")
+	printFile(file)
 
-	if result.error != nil {
-		errorExit("Expression parser error: %s", result.error)
+	if err != nil {
+		errorExit("Expression parser error: %s", err)
 	}
 }
 
-func printExpressionResult(result ExpressionParserResult, padding int) {
-	paddingString := strings.Repeat(" ", 2 * padding)
+func printFile(file *File) {
+	log("")
+	log("FILE ")
+	for _, function := range file.functions {
+		printFunction(function, 1)
+	}
+	log("")
+}
 
-	log("%s  %-2d %s size:%d ", paddingString, result.expressionType, result.size)
-	for ()
+func printFunction(function *Function, padding int) {
+	paddingString := strings.Repeat(" ", 2*padding)
+	log("%sFUNCTION %s", paddingString, function.name)
 }

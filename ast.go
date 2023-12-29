@@ -4,6 +4,20 @@ import (
 	"fmt"
 )
 
+type Expression struct {
+	token    *Token
+	function *Function
+	file     *File
+}
+
+type Function struct {
+	name string
+}
+
+type File struct {
+	functions []*Function
+}
+
 type ExpressionType int
 
 const (
@@ -14,77 +28,52 @@ const (
 )
 
 type expressionParserRequest struct {
-	tokens []*Token
+	tokens   []*Token
+	callback expressionParserCallback
 }
 
 type ExpressionParserResult struct {
-	size               int
-	error              error
-	expressionType     ExpressionType
-	tokenValue         *Token
-	intValues          []int
-	childResults       []ExpressionParserResult
-	taggedChildResults map[string]ExpressionParserResult
-}
-
-func (r ExpressionParserResult) addIntValues(values ...int) {
-	r.intValues = append(r.intValues, values...)
-}
-
-func (r ExpressionParserResult) addChildResult(result ...ExpressionParserResult) {
-	r.childResults = append(r.childResults, result...)
-}
-
-func (r ExpressionParserResult) addTaggedChildResult(result ExpressionParserResult, tag string) {
-	if tag == "" {
-		return
-	}
-	if r.taggedChildResults == nil {
-		r.taggedChildResults = map[string]ExpressionParserResult{}
-	}
-	r.taggedChildResults[tag] = result
-}
-
-func (r ExpressionParserResult) addTaggedChildResults(results map[string]ExpressionParserResult) {
-	if r.taggedChildResults == nil {
-		r.taggedChildResults = map[string]ExpressionParserResult{}
-	}
-	for tag, result := range results {
-		r.taggedChildResults[tag] = result
-	}
+	size       int
+	error      error
+	expression *Expression
 }
 
 type expressionParser func(expressionParserRequest) ExpressionParserResult
 type expressionParserCallback func(result ExpressionParserResult)
 
 type expressionParserConfig struct {
-	parser expressionParser
-	tag    string
+	parser   expressionParser
+	callback expressionParserCallback
 }
 
-func ParseFile(tokens []*Token) ExpressionParserResult {
-	fileParser := oneOfRepeated(expressionParserConfig{
-		parser: functionParser,
-		tag:    "function",
-	})
+func (c expressionParserConfig) onSuccess(result ExpressionParserResult) {
+	if c.callback != nil {
+		c.callback(result)
+	}
+}
 
-	result := fileParser(expressionParserRequest{
-		tokens: tokens,
-	})
+func ParseFile(tokens []*Token) (*File, error) {
+	file := &File{}
 
-	result.expressionType = EXPRESSION_TYPE_FILE
+	_, err := parseOneOfRepeated(expressionParserRequest{tokens: tokens},
+		expressionParserConfig{
+			parser: functionParser,
+			callback: func(result ExpressionParserResult) {
+				file.functions = append(file.functions, result.expression.function)
+			},
+		})
 
-	return result
+	return file, err
 }
 
 func requiredToken(tokenType TokenType) expressionParserConfig {
-	return requiredTokenWithTag(tokenType, "")
+	return requiredTokenWithCallback(tokenType, func(result ExpressionParserResult) {})
 }
 
-func requiredTokenWithTag(tokenType TokenType, tag string) expressionParserConfig {
+func requiredTokenWithCallback(tokenType TokenType, callback expressionParserCallback) expressionParserConfig {
 	return expressionParserConfig{
-		parser: requiredTokenParser(tokenType),
-		tag:    tag,
+		parser:   requiredTokenParser(tokenType),
+		callback: callback,
 	}
 }
 
@@ -106,7 +95,7 @@ func requiredTokenParser(tokenType TokenType) expressionParser {
 		}
 
 		return ExpressionParserResult{
-			tokenValue: tokens[0],
+			expression: &Expression{token: tokens[0]},
 			size:       1,
 		}
 	}
@@ -126,114 +115,91 @@ func optionalTokenParser(tokenType TokenType) expressionParser {
 		}
 
 		return ExpressionParserResult{
+			expression: &Expression{token: tokens[0]},
 			size:       1,
-			tokenValue: tokens[0],
 		}
 	}
 }
 
-func oneOfRepeated(configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
-		tokens := request.tokens
-		result := ExpressionParserResult{
-			expressionType: EXPRESSION_TYPE_GROUP,
+func parseOneOfRepeated(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
+	offset := 0
+
+	for offset < len(request.tokens) {
+		size, err := parseOneOf(expressionParserRequest{
+			tokens: request.tokens[offset:],
+		}, configs...)
+
+		if err != nil {
+			return size, err
 		}
 
-		parsers := []expressionParser{}
-
-		for _, config := range configs {
-			parsers = append(parsers, config.parser)
-		}
-
-		parser := oneOf(configs...)
-
-		for result.size < len(tokens) {
-			log("   Iteration offset=%d len=%d", result.size, len(tokens))
-
-			childResult := parser(expressionParserRequest{
-				tokens: tokens[result.size:],
-			})
-
-			result.addChildResult(childResult)
-			result.addTaggedChildResults(childResult.taggedChildResults)
-			result.error = childResult.error
-			result.size += childResult.size
-			result.addIntValues(childResult.intValues...)
-
-			if childResult.error != nil {
-				log("     error result")
-				return result
-			}
-			log("     ok result")
-		}
-
-		return result
+		offset += size
 	}
+
+	return offset, nil
 }
 
-func allOfOrdered(configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
-		result := ExpressionParserResult{
-			taggedChildResults: map[string]ExpressionParserResult{},
-			expressionType:     EXPRESSION_TYPE_GROUP,
-		}
-		for _, config := range configs {
-			parserRequest := request
-			parserRequest.tokens = parserRequest.tokens[result.size:]
-			childResult := config.parser(parserRequest)
+func parseAllOrdered(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
+	offset := 0
+	for _, config := range configs {
+		result := config.parser(expressionParserRequest{
+			tokens: request.tokens[offset:],
+		})
 
-			result.addChildResult(childResult)
-			result.addTaggedChildResult(childResult, config.tag)
-			result.size += childResult.size
+		offset += result.size
 
-			if childResult.error != nil {
-				result.error = childResult.error
-				break
-			}
+		if result.error != nil {
+			return offset, result.error
 		}
 
-		return result
+		config.onSuccess(result)
 	}
+
+	return offset, nil
 }
 
-func oneOf(configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
-		tokens := request.tokens
-		bestResult := ExpressionParserResult{
-			error: fmt.Errorf("Unexpected token: %s", tokens[0].tokenType),
-		}
-
-		for i, config := range configs {
-			log("oneOf i = %d", i)
-			childResult := config.parser(request)
-
-			result := ExpressionParserResult{}
-			result.addChildResult(childResult)
-			result.addTaggedChildResult(childResult, config.tag)
-			result.error = childResult.error
-			result.addIntValues(i)
-			result.expressionType = EXPRESSION_TYPE_GROUP
-
-			if result.error == nil {
-				return result
-			}
-
-			if result.size >= bestResult.size {
-				bestResult = result
-			}
-		}
-
-		return bestResult
+func parseOneOf(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
+	if len(configs) <= 0 {
+		return 0, nil
 	}
+
+	bestResult := ExpressionParserResult{
+		error: fmt.Errorf("Unexpected token: %s", request.tokens[0].tokenType),
+		size:  -1,
+	}
+
+	bestResultIndex := -1
+
+	for i, config := range configs {
+		log("parseOneOf i = %d", i)
+		result := config.parser(request)
+
+		if result.error == nil {
+			config.callback(result)
+			return result.size, nil
+		}
+
+		if result.size > bestResult.size {
+			bestResult = result
+			bestResultIndex = i
+		}
+	}
+
+	configs[bestResultIndex].callback(bestResult)
+	return bestResult.size, bestResult.error
 }
 
 func functionParser(request expressionParserRequest) ExpressionParserResult {
-	const functionNameTag = "function.name"
+	function := &Function{}
 
-	parser := allOfOrdered(
+	size, err := parseAllOrdered(
+		request,
 		requiredToken(TOKEN_TYPE_KEYWORD_FUNC),
 		requiredToken(TOKEN_TYPE_WHITESPACE),
-		requiredTokenWithTag(TOKEN_TYPE_IDENTIFIER, functionNameTag),
+		requiredTokenWithCallback(TOKEN_TYPE_IDENTIFIER,
+			func(result ExpressionParserResult) {
+				function.name = result.expression.token.value
+			}),
 		requiredToken(TOKEN_TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(TOKEN_TYPE_WHITESPACE),
 		requiredToken(TOKEN_TYPE_ROUND_BRACKET_CLOSE),
@@ -243,11 +209,13 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 		requiredToken(TOKEN_TYPE_CURLY_BRACKET_CLOSE),
 	)
 
-	result := parser(request)
-
-	result.expressionType = EXPRESSION_TYPE_FUNCTION
-
-	return result
+	return ExpressionParserResult{
+		size:  size,
+		error: err,
+		expression: &Expression{
+			function: function,
+		},
+	}
 }
 
 func (t ExpressionType) String() string {
