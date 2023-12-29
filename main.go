@@ -81,4 +81,12 @@ func printFile(file *File) {
 func printFunction(function *Function, padding int) {
 	paddingString := strings.Repeat(" ", 2*padding)
 	log("%sFUNCTION %s", paddingString, function.name)
+	for _, parameter := range function.parameters {
+		printParameter(parameter, padding+1)
+	}
+}
+
+func printParameter(parameter *Parameter, padding int) {
+	paddingString := strings.Repeat(" ", 2*padding)
+	log("%sPARAMETER %s %s", paddingString, parameter.name, parameter.paramType)
 }

@@ -25,15 +25,6 @@ type File struct {
 	functions []*Function
 }
 
-type ExpressionType int
-
-const (
-	EXPRESSION_TYPE_UNKNOWN ExpressionType = iota
-	EXPRESSION_TYPE_GROUP
-	EXPRESSION_TYPE_FILE
-	EXPRESSION_TYPE_FUNCTION
-)
-
 type expressionParserRequest struct {
 	tokens   []*Token
 	callback expressionParserCallback
@@ -139,7 +130,7 @@ func oneOfRepeatedParser(configs ...expressionParserConfig) expressionParser {
 }
 
 func parseOneOfRepeated(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
-	return parseOneOfRepeatedUntil(request, TOKEN_TYPE_UNKNOWN, configs...)
+	return parseOneOfRepeatedUntil(request, TOKEN_TYPE_EOF, configs...)
 }
 
 func oneOfRepeatedUntilParser(terminator TokenType, configs ...expressionParserConfig) expressionParser {
@@ -168,7 +159,17 @@ func parseOneOfRepeatedUntil(request expressionParserRequest, terminator TokenTy
 		offset += size
 	}
 
-	return offset, nil
+	if offset >= len(tokens) {
+		return offset, fmt.Errorf("expected %s, found: EOF", terminator)
+	}
+
+	nextTokenType := tokens[offset].tokenType
+
+	if nextTokenType != terminator {
+		return offset, fmt.Errorf("expected %s, found: %s", terminator, nextTokenType)
+	}
+
+	return offset + 1, nil
 }
 
 func allOrderedParser(configs ...expressionParserConfig) expressionParser {
@@ -251,7 +252,17 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 			}),
 		requiredToken(TOKEN_TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(TOKEN_TYPE_WHITESPACE),
-		requiredToken(TOKEN_TYPE_ROUND_BRACKET_CLOSE),
+		expressionParserConfig{
+			parser: oneOfRepeatedUntilParser(
+				TOKEN_TYPE_ROUND_BRACKET_CLOSE,
+				expressionParserConfig{
+					parser: parameterParser,
+					callback: func(result ExpressionParserResult) {
+						function.parameters = append(function.parameters, result.expression.parameter)
+					},
+				},
+			),
+		},
 		optionalToken(TOKEN_TYPE_WHITESPACE),
 		requiredToken(TOKEN_TYPE_CURLY_BRACKET_OPEN),
 		optionalToken(TOKEN_TYPE_WHITESPACE),
@@ -292,15 +303,4 @@ func parameterParser(request expressionParserRequest) ExpressionParserResult {
 			parameter: parameter,
 		},
 	}
-}
-
-func (t ExpressionType) String() string {
-	switch t {
-	case EXPRESSION_TYPE_UNKNOWN:
-		return "UNKNOWN"
-	case EXPRESSION_TYPE_FUNCTION:
-		return "FUNCTION"
-	}
-
-	panic(fmt.Sprintf("Unsupported expression type: %d", int(t)))
 }

@@ -20,6 +20,7 @@ const (
 	TOKEN_TYPE_LESS_THAN
 	TOKEN_TYPE_COMMA
 	TOKEN_TYPE_KEYWORD_FUNC
+	TOKEN_TYPE_EOF
 )
 
 type Token struct {
@@ -55,6 +56,8 @@ func (t TokenType) String() string {
 		return "COMMA"
 	case TOKEN_TYPE_LESS_THAN:
 		return "LESS_THAN"
+	case TOKEN_TYPE_EOF:
+		return "EOF"
 	}
 
 	panic(fmt.Sprintf("Unsupported token type: %d", int(t)))
@@ -152,6 +155,9 @@ func GetTokens(code string) ([]*Token, error) {
 		offset = token.end
 	}
 
+	tokens = append(tokens, &Token{
+		tokenType: TOKEN_TYPE_EOF,
+	})
 	secondPass(tokens)
 
 	return tokens, nil
