@@ -1,7 +1,4 @@
-func min(a Int, b Int) Int {
-    if (a < b) {
-      return a
-    }
+func min() {
 
-    return b
+
 }

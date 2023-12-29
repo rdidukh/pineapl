@@ -46,7 +46,7 @@ func (t TokenType) String() string {
 	case TOKEN_TYPE_CURLY_BRACKET_OPEN:
 		return "CURLY_BRACKET_OPEN"
 	case TOKEN_TYPE_CURLY_BRACKET_CLOSE:
-		return "CURLTY_BRACKET_CLOSE"
+		return "CURLY_BRACKET_CLOSE"
 	case TOKEN_TYPE_EQUALS:
 		return "EQUALS"
 	case TOKEN_TYPE_KEYWORD_FUNC:
@@ -72,11 +72,6 @@ func runeTokenGetter(tokenType TokenType, rune rune) tokenGetter {
 	return func(code string, offset int) *Token {
 		return getTokenByRune(code, offset, tokenType, rune)
 	}
-}
-
-func (t Token) String() string {
-	//return fmt.Sprintf("Token(type=%q, start=%d, end=%d, value=%q)", t.tokenType, t.start, t.end, t.value)
-	return fmt.Sprintf("%-20s %3d..%2d   %-10q", t.tokenType, t.start, t.end, t.value)
 }
 
 func getNextToken(sourceCode string, offset int) *Token {
