@@ -12,7 +12,7 @@ func ParseExpressions(tokens []*Token) ([]ExpressionParserResult, error) {
 
 	for offset < len(tokens) {
 		log("   Iteration offset=%d len=%d", offset, len(tokens))
-		result := parsers(tokens[offset:], offset)
+		result := parsers(tokens[offset:])
 
 		results = append(results, result)
 
@@ -33,10 +33,10 @@ type ExpressionParserResult struct {
 	error  error
 }
 
-type expressionParser func(tokens []*Token, offset int) ExpressionParserResult
+type expressionParser func(tokens []*Token) ExpressionParserResult
 
 func requiredToken(tokenType TokenType) expressionParser {
-	return func(tokens []*Token, offset int) ExpressionParserResult {
+	return func(tokens []*Token) ExpressionParserResult {
 		if len(tokens) <= 0 {
 			return ExpressionParserResult{
 				error: fmt.Errorf("Expected %s, Found: EOF", tokenType),
@@ -52,41 +52,28 @@ func requiredToken(tokenType TokenType) expressionParser {
 		}
 
 		return ExpressionParserResult{
-			offset: offset,
-			size:   1,
+			size: 1,
 		}
 	}
 }
 
 func optionalToken(expectedTokenType TokenType) expressionParser {
-	return func(tokens []*Token, offset int) ExpressionParserResult {
-		if len(tokens) <= 0 {
-			return ExpressionParserResult{
-				// TODO: offset: offset,
-				size: 0,
-			}
-		}
-
-		if tokens[0].tokenType != expectedTokenType {
-			return ExpressionParserResult{
-				// TODO: offset: offset,
-				size: 0,
-			}
+	return func(tokens []*Token) ExpressionParserResult {
+		if len(tokens) <= 0 || tokens[0].tokenType != expectedTokenType {
+			return ExpressionParserResult{}
 		}
 
 		return ExpressionParserResult{
-			// TODO: offset: offset,
 			size: 1,
 		}
 	}
 }
 
 func allOf(parsers ...expressionParser) expressionParser {
-	return func(tokens []*Token, offset int) ExpressionParserResult {
-		offset = 0
+	return func(tokens []*Token) ExpressionParserResult {
+		offset := 0
 		for _, parser := range parsers {
-			// func(tokens []*Token, offset int) parseResult
-			result := parser(tokens[offset:], offset)
+			result := parser(tokens[offset:])
 			offset += result.size
 
 			if result.error != nil {
@@ -104,14 +91,14 @@ func allOf(parsers ...expressionParser) expressionParser {
 }
 
 func oneOf(parsers ...expressionParser) expressionParser {
-	return func(tokens []*Token, offset int) ExpressionParserResult {
+	return func(tokens []*Token) ExpressionParserResult {
 		bestResult := ExpressionParserResult{
 			error: fmt.Errorf("Unexpected token: %s", tokens[0].tokenType),
 		}
 
 		for i, parser := range parsers {
 			log("oneOf i = %d", i)
-			result := parser(tokens, offset)
+			result := parser(tokens)
 
 			if result.error == nil {
 				return result
