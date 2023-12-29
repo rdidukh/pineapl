@@ -64,7 +64,10 @@ func main() {
 	log("")
 	log("EXPRESSION PARSER RESULTS")
 	for i, result := range results {
-		log("  %-2d size=%d", i, result.size)
+		log("  %-2d %s size:%d", i, result.expressionType, result.size)
+		for key, value := range result.tokenValues {
+			log("\t%q=%q", key, value.value)
+		}
 	}
 	log("")
 

@@ -1,6 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"maps"
+)
+
+type ExpressionType int
+
+const (
+	EXPRESSION_TYPE_UNKNOWN ExpressionType = iota
+	EXPRESSION_TYPE_FUNCTION
+)
 
 func ParseExpressions(tokens []*Token) ([]ExpressionParserResult, error) {
 	offset := 0
@@ -28,14 +38,25 @@ func ParseExpressions(tokens []*Token) ([]ExpressionParserResult, error) {
 }
 
 type ExpressionParserResult struct {
-	offset int
-	size   int
-	error  error
+	offset         int
+	size           int
+	error          error
+	expressionType ExpressionType
+	tokenValues    map[string]*Token
 }
 
 type expressionParser func(tokens []*Token) ExpressionParserResult
 
+type taggedExpressionParser struct {
+	parser expressionParser
+	tag    string
+}
+
 func requiredToken(tokenType TokenType) expressionParser {
+	return requiredTokenWithValue(tokenType, "")
+}
+
+func requiredTokenWithValue(tokenType TokenType, key string) expressionParser {
 	return func(tokens []*Token) ExpressionParserResult {
 		if len(tokens) <= 0 {
 			return ExpressionParserResult{
@@ -51,9 +72,15 @@ func requiredToken(tokenType TokenType) expressionParser {
 			}
 		}
 
-		return ExpressionParserResult{
+		result := ExpressionParserResult{
 			size: 1,
 		}
+
+		if len(key) > 0 {
+			result.tokenValues = map[string]*Token{key: tokens[0]}
+		}
+
+		return result
 	}
 }
 
@@ -71,22 +98,21 @@ func optionalToken(expectedTokenType TokenType) expressionParser {
 
 func allOf(parsers ...expressionParser) expressionParser {
 	return func(tokens []*Token) ExpressionParserResult {
-		offset := 0
+		result := ExpressionParserResult{
+			tokenValues: map[string]*Token{},
+		}
 		for _, parser := range parsers {
-			result := parser(tokens[offset:])
-			offset += result.size
+			parserResult := parser(tokens[result.size:])
+			maps.Copy(result.tokenValues, parserResult.tokenValues)
+			result.size += parserResult.size
 
-			if result.error != nil {
-				return ExpressionParserResult{
-					size:  offset,
-					error: result.error,
-				}
+			if parserResult.error != nil {
+				result.error = parserResult.error
+				break
 			}
 		}
 
-		return ExpressionParserResult{
-			size: offset,
-		}
+		return result
 	}
 }
 
@@ -113,15 +139,36 @@ func oneOf(parsers ...expressionParser) expressionParser {
 	}
 }
 
-var functionParser = allOf(
-	requiredToken(TOKEN_TYPE_KEYWORD_FUNC),
-	requiredToken(TOKEN_TYPE_WHITESPACE),
-	requiredToken(TOKEN_TYPE_IDENTIFIER),
-	requiredToken(TOKEN_TYPE_ROUND_BRACKET_OPEN),
-	optionalToken(TOKEN_TYPE_WHITESPACE),
-	requiredToken(TOKEN_TYPE_ROUND_BRACKET_CLOSE),
-	optionalToken(TOKEN_TYPE_WHITESPACE),
-	requiredToken(TOKEN_TYPE_CURLY_BRACKET_OPEN),
-	optionalToken(TOKEN_TYPE_WHITESPACE),
-	requiredToken(TOKEN_TYPE_CURLY_BRACKET_CLOSE),
-)
+var functionParser expressionParser = func(tokens []*Token) ExpressionParserResult {
+	const functionNameKey = "function.name"
+
+	parser := allOf(
+		requiredToken(TOKEN_TYPE_KEYWORD_FUNC),
+		requiredToken(TOKEN_TYPE_WHITESPACE),
+		requiredTokenWithValue(TOKEN_TYPE_IDENTIFIER, "function.name"),
+		requiredToken(TOKEN_TYPE_ROUND_BRACKET_OPEN),
+		optionalToken(TOKEN_TYPE_WHITESPACE),
+		requiredToken(TOKEN_TYPE_ROUND_BRACKET_CLOSE),
+		optionalToken(TOKEN_TYPE_WHITESPACE),
+		requiredToken(TOKEN_TYPE_CURLY_BRACKET_OPEN),
+		optionalToken(TOKEN_TYPE_WHITESPACE),
+		requiredToken(TOKEN_TYPE_CURLY_BRACKET_CLOSE),
+	)
+
+	result := parser(tokens)
+
+	result.expressionType = EXPRESSION_TYPE_FUNCTION
+
+	return result
+}
+
+func (t ExpressionType) String() string {
+	switch t {
+	case EXPRESSION_TYPE_UNKNOWN:
+		return "UNKNOWN"
+	case EXPRESSION_TYPE_FUNCTION:
+		return "FUNCTION"
+	}
+
+	panic(fmt.Sprintf("Unsupported expression type: %d", int(t)))
+}
