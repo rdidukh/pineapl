@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 var inputFileFlag = flag.String("i", "", "TODO: usage")
@@ -59,19 +60,21 @@ func main() {
 		errorExit("Token error: %s", err)
 	}
 
-	results, err := ParseExpressions(tokens)
+	result := ParseFile(tokens)
 
 	log("")
-	log("EXPRESSION PARSER RESULTS")
-	for i, result := range results {
-		log("  %-2d %s size:%d", i, result.expressionType, result.size)
-		for key, value := range result.tokenValues {
-			log("\t%q=%q", key, value.value)
-		}
-	}
+	log("EXPRESSION PARSER RESULT")
+	printExpressionResult(result)
 	log("")
 
-	if err != nil {
-		errorExit("Expression parser error: %s", err)
+	if result.error != nil {
+		errorExit("Expression parser error: %s", result.error)
 	}
+}
+
+func printExpressionResult(result ExpressionParserResult, padding int) {
+	paddingString := strings.Repeat(" ", 2 * padding)
+
+	log("%s  %-2d %s size:%d ", paddingString, result.expressionType, result.size)
+	for ()
 }
