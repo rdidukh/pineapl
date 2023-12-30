@@ -1,8 +1,9 @@
-package main
+package ast
 
 import (
 	"fmt"
 
+	"github.com/rdidukh/pineapl/logger"
 	"github.com/rdidukh/pineapl/token"
 )
 
@@ -14,39 +15,39 @@ type Expression struct {
 }
 
 type Function struct {
-	name       string
-	parameters []*Parameter
+	Name       string
+	Parameters []*Parameter
 }
 
 type Parameter struct {
-	name      string
-	paramType string
+	Name string
+	Type string
 }
 
 type File struct {
-	functions []*Function
+	Functions []*Function
 }
 
-type expressionParserRequest struct {
+type parserRequest struct {
 	tokens   []*token.Token
-	callback expressionParserCallback
+	callback parserCallback
 }
 
-type ExpressionParserResult struct {
+type parserResult struct {
 	size       int
 	error      error
 	expression *Expression
 }
 
-type expressionParser func(expressionParserRequest) ExpressionParserResult
-type expressionParserCallback func(result ExpressionParserResult)
+type parser func(parserRequest) parserResult
+type parserCallback func(result parserResult)
 
-type expressionParserConfig struct {
-	parser   expressionParser
-	callback expressionParserCallback
+type parserConfig struct {
+	parser   parser
+	callback parserCallback
 }
 
-func (c expressionParserConfig) onSuccess(result ExpressionParserResult) {
+func (c parserConfig) onSuccess(result parserResult) {
 	if c.callback != nil {
 		c.callback(result)
 	}
@@ -55,33 +56,33 @@ func (c expressionParserConfig) onSuccess(result ExpressionParserResult) {
 func ParseFile(tokens []*token.Token) (*File, error) {
 	file := &File{}
 
-	_, err := parseOneOfRepeated(expressionParserRequest{tokens: tokens},
-		expressionParserConfig{
+	_, err := parseOneOfRepeated(parserRequest{tokens: tokens},
+		parserConfig{
 			parser: functionParser,
-			callback: func(result ExpressionParserResult) {
-				file.functions = append(file.functions, result.expression.function)
+			callback: func(result parserResult) {
+				file.Functions = append(file.Functions, result.expression.function)
 			},
 		})
 
 	return file, err
 }
 
-func requiredToken(tokenType token.Type) expressionParserConfig {
-	return requiredTokenWithCallback(tokenType, func(result ExpressionParserResult) {})
+func requiredToken(tokenType token.Type) parserConfig {
+	return requiredTokenWithCallback(tokenType, func(result parserResult) {})
 }
 
-func requiredTokenWithCallback(tokenType token.Type, callback expressionParserCallback) expressionParserConfig {
-	return expressionParserConfig{
+func requiredTokenWithCallback(tokenType token.Type, callback parserCallback) parserConfig {
+	return parserConfig{
 		parser:   requiredTokenParser(tokenType),
 		callback: callback,
 	}
 }
 
-func requiredTokenParser(tokenType token.Type) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
+func requiredTokenParser(tokenType token.Type) parser {
+	return func(request parserRequest) parserResult {
 		tokens := request.tokens
 		if len(tokens) <= 0 {
-			return ExpressionParserResult{
+			return parserResult{
 				error: fmt.Errorf("Expected %s, Found: EOF", tokenType),
 			}
 		}
@@ -89,68 +90,68 @@ func requiredTokenParser(tokenType token.Type) expressionParser {
 		actualTokenType := tokens[0].Type
 
 		if actualTokenType != tokenType {
-			return ExpressionParserResult{
+			return parserResult{
 				error: fmt.Errorf("Expected %s, Found: %s", tokenType, actualTokenType),
 			}
 		}
 
-		return ExpressionParserResult{
+		return parserResult{
 			expression: &Expression{token: tokens[0]},
 			size:       1,
 		}
 	}
 }
 
-func optionalToken(tokenType token.Type) expressionParserConfig {
-	return expressionParserConfig{
+func optionalToken(tokenType token.Type) parserConfig {
+	return parserConfig{
 		parser: optionalTokenParser(tokenType),
 	}
 }
 
-func optionalTokenParser(tokenType token.Type) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
+func optionalTokenParser(tokenType token.Type) parser {
+	return func(request parserRequest) parserResult {
 		tokens := request.tokens
 		if len(tokens) <= 0 || tokens[0].Type != tokenType {
-			return ExpressionParserResult{}
+			return parserResult{}
 		}
 
-		return ExpressionParserResult{
+		return parserResult{
 			expression: &Expression{token: tokens[0]},
 			size:       1,
 		}
 	}
 }
 
-func oneOfRepeatedParser(configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
+func oneOfRepeatedParser(configs ...parserConfig) parser {
+	return func(request parserRequest) parserResult {
 		size, err := parseOneOfRepeated(request, configs...)
-		return ExpressionParserResult{
+		return parserResult{
 			size:  size,
 			error: err,
 		}
 	}
 }
 
-func parseOneOfRepeated(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
+func parseOneOfRepeated(request parserRequest, configs ...parserConfig) (int, error) {
 	return parseOneOfRepeatedUntil(request, token.TYPE_EOF, configs...)
 }
 
-func oneOfRepeatedUntilParser(terminator token.Type, configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
+func oneOfRepeatedUntilParser(terminator token.Type, configs ...parserConfig) parser {
+	return func(request parserRequest) parserResult {
 		size, err := parseOneOfRepeatedUntil(request, terminator, configs...)
-		return ExpressionParserResult{
+		return parserResult{
 			size:  size,
 			error: err,
 		}
 	}
 }
 
-func parseOneOfRepeatedUntil(request expressionParserRequest, terminator token.Type, configs ...expressionParserConfig) (int, error) {
+func parseOneOfRepeatedUntil(request parserRequest, terminator token.Type, configs ...parserConfig) (int, error) {
 	offset := 0
 	tokens := request.tokens
 
 	for offset < len(tokens) && tokens[offset].Type != terminator {
-		size, err := parseOneOf(expressionParserRequest{
+		size, err := parseOneOf(parserRequest{
 			tokens: request.tokens[offset:],
 		}, configs...)
 
@@ -174,20 +175,20 @@ func parseOneOfRepeatedUntil(request expressionParserRequest, terminator token.T
 	return offset + 1, nil
 }
 
-func allOrderedParser(configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
+func allOrderedParser(configs ...parserConfig) parser {
+	return func(request parserRequest) parserResult {
 		size, err := parseAllOrdered(request, configs...)
-		return ExpressionParserResult{
+		return parserResult{
 			size:  size,
 			error: err,
 		}
 	}
 }
 
-func parseAllOrdered(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
+func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error) {
 	offset := 0
 	for _, config := range configs {
-		result := config.parser(expressionParserRequest{
+		result := config.parser(parserRequest{
 			tokens: request.tokens[offset:],
 		})
 
@@ -203,19 +204,19 @@ func parseAllOrdered(request expressionParserRequest, configs ...expressionParse
 	return offset, nil
 }
 
-func oneOfParser(configs ...expressionParserConfig) expressionParser {
-	return func(request expressionParserRequest) ExpressionParserResult {
+func oneOfParser(configs ...parserConfig) parser {
+	return func(request parserRequest) parserResult {
 		size, err := parseOneOf(request, configs...)
-		return ExpressionParserResult{size: size, error: err}
+		return parserResult{size: size, error: err}
 	}
 }
 
-func parseOneOf(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
+func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
 	if len(configs) <= 0 {
 		return 0, nil
 	}
 
-	bestResult := ExpressionParserResult{
+	bestResult := parserResult{
 		error: fmt.Errorf("Unexpected token: %s", request.tokens[0].Type),
 		size:  -1,
 	}
@@ -223,7 +224,7 @@ func parseOneOf(request expressionParserRequest, configs ...expressionParserConf
 	bestResultIndex := -1
 
 	for i, config := range configs {
-		log("parseOneOf i = %d", i)
+		logger.Log("parseOneOf i = %d", i)
 		result := config.parser(request)
 
 		if result.error == nil {
@@ -241,7 +242,7 @@ func parseOneOf(request expressionParserRequest, configs ...expressionParserConf
 	return bestResult.size, bestResult.error
 }
 
-func functionParser(request expressionParserRequest) ExpressionParserResult {
+func functionParser(request parserRequest) parserResult {
 	function := &Function{}
 
 	size, err := parseAllOrdered(
@@ -249,18 +250,18 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 		requiredToken(token.TYPE_KEYWORD_FUNC),
 		requiredToken(token.TYPE_WHITESPACE),
 		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
-			func(result ExpressionParserResult) {
-				function.name = result.expression.token.Value
+			func(result parserResult) {
+				function.Name = result.expression.token.Value
 			}),
 		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
-		expressionParserConfig{
+		parserConfig{
 			parser: oneOfRepeatedUntilParser(
 				token.TYPE_ROUND_BRACKET_CLOSE,
-				expressionParserConfig{
+				parserConfig{
 					parser: parameterParser,
-					callback: func(result ExpressionParserResult) {
-						function.parameters = append(function.parameters, result.expression.parameter)
+					callback: func(result parserResult) {
+						function.Parameters = append(function.Parameters, result.expression.parameter)
 					},
 				},
 			),
@@ -271,7 +272,7 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
 	)
 
-	return ExpressionParserResult{
+	return parserResult{
 		size:  size,
 		error: err,
 		expression: &Expression{
@@ -280,25 +281,25 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 	}
 }
 
-func parameterParser(request expressionParserRequest) ExpressionParserResult {
+func parameterParser(request parserRequest) parserResult {
 	parameter := &Parameter{}
 
 	size, err := parseAllOrdered(
 		request,
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
-			func(result ExpressionParserResult) {
-				parameter.name = result.expression.token.Value
+			func(result parserResult) {
+				parameter.Name = result.expression.token.Value
 			}),
 		requiredToken(token.TYPE_WHITESPACE),
 		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
-			func(result ExpressionParserResult) {
-				parameter.paramType = result.expression.token.Value
+			func(result parserResult) {
+				parameter.Type = result.expression.token.Value
 			}),
 		requiredToken(token.TYPE_COMMA),
 	)
 
-	return ExpressionParserResult{
+	return parserResult{
 		size:  size,
 		error: err,
 		expression: &Expression{
