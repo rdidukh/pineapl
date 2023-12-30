@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/rdidukh/pineapl/logger"
+	"github.com/rdidukh/pineapl/token"
 )
 
 type oneOfParser struct {
@@ -25,6 +26,27 @@ func (p oneOfParser) parse(request parserRequest) parserResult {
 	}
 }
 
+type untilParser struct {
+	config     parserConfig
+	terminator token.Type
+}
+
+func until(config parserConfig, terminator token.Type) parserConfig {
+	parser := oneOfParser{configs: []parserConfig{config}}
+	return parserConfig{
+		parser: parser.parse,
+	}
+}
+
+func (p untilParser) parse(request parserRequest) parserResult {
+	size, err := parseUntil(request, p.terminator, p.config)
+	return parserResult{
+		size:  size,
+		error: err,
+	}
+}
+
+// TODO: inline.
 func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
 	if len(configs) <= 0 {
 		return 0, nil
@@ -54,4 +76,50 @@ func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
 
 	configs[bestResultIndex].callback(bestResult)
 	return bestResult.size, bestResult.error
+}
+
+// TODO: remove.
+func parseOneOfRepeated(request parserRequest, config parserConfig) (int, error) {
+	return parseUntil(request, token.TYPE_EOF, config)
+}
+
+// TODO: remove.
+func oneOfRepeatedUntilParser(terminator token.Type, config parserConfig) parser {
+	return func(request parserRequest) parserResult {
+		size, err := parseUntil(request, terminator, config)
+		return parserResult{
+			size:  size,
+			error: err,
+		}
+	}
+}
+
+// TODO: inline.
+func parseUntil(request parserRequest, terminator token.Type, config parserConfig) (int, error) {
+	offset := 0
+	tokens := request.tokens
+
+	for offset < len(tokens) && tokens[offset].Type != terminator {
+		size, err := parseOneOf(parserRequest{
+			tokens: request.tokens[offset:],
+		}, config)
+
+		if err != nil {
+			return size, err
+		}
+
+		offset += size
+	}
+
+	if offset >= len(tokens) {
+		return offset, fmt.Errorf("expected %s, found: EOF", terminator)
+	}
+
+	nextTokenType := tokens[offset].Type
+
+	if nextTokenType != terminator {
+		return offset, fmt.Errorf("expected %s, found: %s", terminator, nextTokenType)
+	}
+
+	return offset + 1, nil
 }

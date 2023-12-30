@@ -1,8 +1,6 @@
 package ast
 
 import (
-	"fmt"
-
 	"github.com/rdidukh/pineapl/token"
 )
 
@@ -60,49 +58,6 @@ func ParseFile(tokens []*token.Token) (*File, error) {
 	result := fileParser(parserRequest{tokens: tokens})
 
 	return result.expression.file, result.error
-}
-
-func parseOneOfRepeated(request parserRequest, configs ...parserConfig) (int, error) {
-	return parseOneOfRepeatedUntil(request, token.TYPE_EOF, configs...)
-}
-
-func oneOfRepeatedUntilParser(terminator token.Type, configs ...parserConfig) parser {
-	return func(request parserRequest) parserResult {
-		size, err := parseOneOfRepeatedUntil(request, terminator, configs...)
-		return parserResult{
-			size:  size,
-			error: err,
-		}
-	}
-}
-
-func parseOneOfRepeatedUntil(request parserRequest, terminator token.Type, configs ...parserConfig) (int, error) {
-	offset := 0
-	tokens := request.tokens
-
-	for offset < len(tokens) && tokens[offset].Type != terminator {
-		size, err := parseOneOf(parserRequest{
-			tokens: request.tokens[offset:],
-		}, configs...)
-
-		if err != nil {
-			return size, err
-		}
-
-		offset += size
-	}
-
-	if offset >= len(tokens) {
-		return offset, fmt.Errorf("expected %s, found: EOF", terminator)
-	}
-
-	nextTokenType := tokens[offset].Type
-
-	if nextTokenType != terminator {
-		return offset, fmt.Errorf("expected %s, found: %s", terminator, nextTokenType)
-	}
-
-	return offset + 1, nil
 }
 
 func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error) {
