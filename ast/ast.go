@@ -14,10 +14,6 @@ type Expression struct {
 	parameter *Parameter
 }
 
-type File struct {
-	Functions []*Function
-}
-
 type parserRequest struct {
 	tokens []*token.Token
 }
@@ -43,17 +39,9 @@ func (c parserConfig) onSuccess(result parserResult) {
 }
 
 func ParseFile(tokens []*token.Token) (*File, error) {
-	file := &File{}
+	result := fileParser(parserRequest{tokens: tokens})
 
-	_, err := parseOneOfRepeated(parserRequest{tokens: tokens},
-		parserConfig{
-			parser: functionParser,
-			callback: func(result parserResult) {
-				file.Functions = append(file.Functions, result.expression.function)
-			},
-		})
-
-	return file, err
+	return result.expression.file, result.error
 }
 
 func requiredToken(tokenType token.Type) parserConfig {
