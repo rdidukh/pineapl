@@ -38,6 +38,19 @@ func (c parserConfig) onSuccess(result parserResult) {
 	}
 }
 
+func ParseString(code string) ([]*token.Token, *File, error) {
+	tokens, err := token.GetTokens(code)
+
+	if err != nil {
+		return tokens, nil, err
+	}
+
+	file, err := ParseFile(tokens)
+
+	return tokens, file, err
+
+}
+
 func ParseFile(tokens []*token.Token) (*File, error) {
 	result := fileParser(parserRequest{tokens: tokens})
 

@@ -7,7 +7,6 @@ import (
 
 	"github.com/rdidukh/pineapl/ast"
 	"github.com/rdidukh/pineapl/logger"
-	"github.com/rdidukh/pineapl/token"
 )
 
 var inputFileFlag = flag.String("i", "", "TODO: usage")
@@ -17,25 +16,17 @@ func main() {
 
 	flag.Parse()
 
-	logger.Log("  after flag.Parse()")
-
 	if *inputFileFlag == "" {
 		logger.ErrorExit("Missing -i")
 	}
 
 	inputFileContents, err := os.ReadFile(*inputFileFlag)
 
-	logger.Log("  after ReadFile")
-
 	if err != nil {
 		logger.ErrorExit("File read error: %s", err.Error())
 	}
 
-	codeToCompile := string(inputFileContents)
-
-	logger.Log("  codeToCompile len=%d", len(codeToCompile))
-
-	tokens, err := token.GetTokens(codeToCompile)
+	tokens, file, err := ast.ParseString(string(inputFileContents))
 
 	logger.Log("")
 	logger.Log("TOKENS")
@@ -47,8 +38,6 @@ func main() {
 	if err != nil {
 		logger.ErrorExit("Token error: %s", err)
 	}
-
-	file, err := ast.ParseFile(tokens)
 
 	printFile(file)
 
