@@ -3,7 +3,6 @@ package ast
 import (
 	"fmt"
 
-	"github.com/rdidukh/pineapl/logger"
 	"github.com/rdidukh/pineapl/token"
 )
 
@@ -123,42 +122,4 @@ func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error
 	}
 
 	return offset, nil
-}
-
-func oneOfParser(configs ...parserConfig) parser {
-	return func(request parserRequest) parserResult {
-		size, err := parseOneOf(request, configs...)
-		return parserResult{size: size, error: err}
-	}
-}
-
-func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
-	if len(configs) <= 0 {
-		return 0, nil
-	}
-
-	bestResult := parserResult{
-		error: fmt.Errorf("Unexpected token: %s", request.tokens[0].Type),
-		size:  -1,
-	}
-
-	bestResultIndex := -1
-
-	for i, config := range configs {
-		logger.Log("parseOneOf i = %d", i)
-		result := config.parser(request)
-
-		if result.error == nil {
-			config.callback(result)
-			return result.size, nil
-		}
-
-		if result.size > bestResult.size {
-			bestResult = result
-			bestResultIndex = i
-		}
-	}
-
-	configs[bestResultIndex].callback(bestResult)
-	return bestResult.size, bestResult.error
 }
