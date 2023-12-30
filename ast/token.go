@@ -6,52 +6,58 @@ import (
 	"github.com/rdidukh/pineapl/token"
 )
 
+type requiredTokenParser struct {
+	tokenType token.Type
+}
+
 func requiredToken(tokenType token.Type) parserConfig {
+	parser := requiredTokenParser{tokenType: tokenType}
 	return parserConfig{
-		parser: requiredTokenParser(tokenType),
+		parser: parser.parse,
 	}
 }
 
-func requiredTokenParser(tokenType token.Type) parser {
-	return func(request parserRequest) parserResult {
-		tokens := request.tokens
-		if len(tokens) <= 0 {
-			return parserResult{
-				error: fmt.Errorf("expected %s, found: EOF", tokenType),
-			}
-		}
-
-		actualTokenType := tokens[0].Type
-
-		if actualTokenType != tokenType {
-			return parserResult{
-				error: fmt.Errorf("expected %s, found: %s", tokenType, actualTokenType),
-			}
-		}
-
+func (p requiredTokenParser) parse(request parserRequest) parserResult {
+	tokens := request.tokens
+	if len(tokens) <= 0 {
 		return parserResult{
-			expression: &Expression{token: tokens[0]},
-			size:       1,
+			error: fmt.Errorf("expected %s, found: EOF", p.tokenType),
 		}
 	}
+
+	actualTokenType := tokens[0].Type
+
+	if actualTokenType != p.tokenType {
+		return parserResult{
+			error: fmt.Errorf("expected %s, found: %s", p.tokenType, actualTokenType),
+		}
+	}
+
+	return parserResult{
+		expression: &Expression{token: tokens[0]},
+		size:       1,
+	}
+}
+
+type optionalTokenParser struct {
+	tokenType token.Type
 }
 
 func optionalToken(tokenType token.Type) parserConfig {
+	parser := optionalTokenParser{tokenType: tokenType}
 	return parserConfig{
-		parser: optionalTokenParser(tokenType),
+		parser: parser.parse,
 	}
 }
 
-func optionalTokenParser(tokenType token.Type) parser {
-	return func(request parserRequest) parserResult {
-		tokens := request.tokens
-		if len(tokens) <= 0 || tokens[0].Type != tokenType {
-			return parserResult{}
-		}
+func (p optionalTokenParser) parse(request parserRequest) parserResult {
+	tokens := request.tokens
+	if len(tokens) <= 0 || tokens[0].Type != p.tokenType {
+		return parserResult{}
+	}
 
-		return parserResult{
-			expression: &Expression{token: tokens[0]},
-			size:       1,
-		}
+	return parserResult{
+		expression: &Expression{token: tokens[0]},
+		size:       1,
 	}
 }
