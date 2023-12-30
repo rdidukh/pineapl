@@ -14,23 +14,12 @@ type Expression struct {
 	parameter *Parameter
 }
 
-type Function struct {
-	Name       string
-	Parameters []*Parameter
-}
-
-type Parameter struct {
-	Name string
-	Type string
-}
-
 type File struct {
 	Functions []*Function
 }
 
 type parserRequest struct {
-	tokens   []*token.Token
-	callback parserCallback
+	tokens []*token.Token
 }
 
 type parserResult struct {
@@ -240,70 +229,4 @@ func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
 
 	configs[bestResultIndex].callback(bestResult)
 	return bestResult.size, bestResult.error
-}
-
-func functionParser(request parserRequest) parserResult {
-	function := &Function{}
-
-	size, err := parseAllOrdered(
-		request,
-		requiredToken(token.TYPE_KEYWORD_FUNC),
-		requiredToken(token.TYPE_WHITESPACE),
-		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
-			func(result parserResult) {
-				function.Name = result.expression.token.Value
-			}),
-		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
-		optionalToken(token.TYPE_WHITESPACE),
-		parserConfig{
-			parser: oneOfRepeatedUntilParser(
-				token.TYPE_ROUND_BRACKET_CLOSE,
-				parserConfig{
-					parser: parameterParser,
-					callback: func(result parserResult) {
-						function.Parameters = append(function.Parameters, result.expression.parameter)
-					},
-				},
-			),
-		},
-		optionalToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
-		optionalToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
-	)
-
-	return parserResult{
-		size:  size,
-		error: err,
-		expression: &Expression{
-			function: function,
-		},
-	}
-}
-
-func parameterParser(request parserRequest) parserResult {
-	parameter := &Parameter{}
-
-	size, err := parseAllOrdered(
-		request,
-		optionalToken(token.TYPE_WHITESPACE),
-		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
-			func(result parserResult) {
-				parameter.Name = result.expression.token.Value
-			}),
-		requiredToken(token.TYPE_WHITESPACE),
-		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
-			func(result parserResult) {
-				parameter.Type = result.expression.token.Value
-			}),
-		requiredToken(token.TYPE_COMMA),
-	)
-
-	return parserResult{
-		size:  size,
-		error: err,
-		expression: &Expression{
-			parameter: parameter,
-		},
-	}
 }
