@@ -16,7 +16,7 @@ func functionParser(request parserRequest) parserResult {
 		request,
 		requiredToken(token.TYPE_KEYWORD_FUNC),
 		requiredToken(token.TYPE_WHITESPACE),
-		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
+		requiredToken(token.TYPE_IDENTIFIER).withCallback(
 			func(result parserResult) {
 				function.Name = result.expression.token.Value
 			}),

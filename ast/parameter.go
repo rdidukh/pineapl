@@ -13,12 +13,12 @@ func parameterParser(request parserRequest) parserResult {
 	size, err := parseAllOrdered(
 		request,
 		optionalToken(token.TYPE_WHITESPACE),
-		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
+		requiredToken(token.TYPE_IDENTIFIER).withCallback(
 			func(result parserResult) {
 				parameter.Name = result.expression.token.Value
 			}),
 		requiredToken(token.TYPE_WHITESPACE),
-		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
+		requiredToken(token.TYPE_IDENTIFIER).withCallback(
 			func(result parserResult) {
 				parameter.Type = result.expression.token.Value
 			}),

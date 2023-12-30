@@ -32,6 +32,12 @@ type parserConfig struct {
 	callback parserCallback
 }
 
+func (c parserConfig) withCallback(callback parserCallback) parserConfig {
+	config := c
+	config.callback = callback
+	return config
+}
+
 func (c parserConfig) onSuccess(result parserResult) {
 	if c.callback != nil {
 		c.callback(result)
@@ -55,71 +61,6 @@ func ParseFile(tokens []*token.Token) (*File, error) {
 	result := fileParser(parserRequest{tokens: tokens})
 
 	return result.expression.file, result.error
-}
-
-func requiredToken(tokenType token.Type) parserConfig {
-	return requiredTokenWithCallback(tokenType, func(result parserResult) {})
-}
-
-func requiredTokenWithCallback(tokenType token.Type, callback parserCallback) parserConfig {
-	return parserConfig{
-		parser:   requiredTokenParser(tokenType),
-		callback: callback,
-	}
-}
-
-func requiredTokenParser(tokenType token.Type) parser {
-	return func(request parserRequest) parserResult {
-		tokens := request.tokens
-		if len(tokens) <= 0 {
-			return parserResult{
-				error: fmt.Errorf("Expected %s, Found: EOF", tokenType),
-			}
-		}
-
-		actualTokenType := tokens[0].Type
-
-		if actualTokenType != tokenType {
-			return parserResult{
-				error: fmt.Errorf("Expected %s, Found: %s", tokenType, actualTokenType),
-			}
-		}
-
-		return parserResult{
-			expression: &Expression{token: tokens[0]},
-			size:       1,
-		}
-	}
-}
-
-func optionalToken(tokenType token.Type) parserConfig {
-	return parserConfig{
-		parser: optionalTokenParser(tokenType),
-	}
-}
-
-func optionalTokenParser(tokenType token.Type) parser {
-	return func(request parserRequest) parserResult {
-		tokens := request.tokens
-		if len(tokens) <= 0 || tokens[0].Type != tokenType {
-			return parserResult{}
-		}
-
-		return parserResult{
-			expression: &Expression{token: tokens[0]},
-			size:       1,
-		}
-	}
-}
-
-func oneOfRepeatedParser(configs ...parserConfig) parser {
-	return func(request parserRequest) parserResult {
-		size, err := parseOneOfRepeated(request, configs...)
-		return parserResult{
-			size:  size,
-			error: err,
-		}
-	}
 }
 
 func parseOneOfRepeated(request parserRequest, configs ...parserConfig) (int, error) {
@@ -163,16 +104,6 @@ func parseOneOfRepeatedUntil(request parserRequest, terminator token.Type, confi
 	}
 
 	return offset + 1, nil
-}
-
-func allOrderedParser(configs ...parserConfig) parser {
-	return func(request parserRequest) parserResult {
-		size, err := parseAllOrdered(request, configs...)
-		return parserResult{
-			size:  size,
-			error: err,
-		}
-	}
 }
 
 func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error) {
