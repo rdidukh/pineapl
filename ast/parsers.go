@@ -32,7 +32,7 @@ type untilParser struct {
 }
 
 func until(config parserConfig, terminator token.Type) parserConfig {
-	parser := oneOfParser{configs: []parserConfig{config}}
+	parser := untilParser{config: config, terminator: terminator}
 	return parserConfig{
 		parser: parser.parse,
 	}
@@ -40,6 +40,25 @@ func until(config parserConfig, terminator token.Type) parserConfig {
 
 func (p untilParser) parse(request parserRequest) parserResult {
 	size, err := parseUntil(request, p.terminator, p.config)
+	return parserResult{
+		size:  size,
+		error: err,
+	}
+}
+
+type allOfParser struct {
+	configs []parserConfig
+}
+
+func allOf(configs ...parserConfig) parserConfig {
+	parser := allOfParser{configs: configs}
+	return parserConfig{
+		parser: parser.parse,
+	}
+}
+
+func (p allOfParser) parse(request parserRequest) parserResult {
+	size, err := parseAllOrdered(request, p.configs...)
 	return parserResult{
 		size:  size,
 		error: err,
@@ -122,4 +141,24 @@ func parseUntil(request parserRequest, terminator token.Type, config parserConfi
 	}
 
 	return offset + 1, nil
+}
+
+// TODO: inline.
+func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error) {
+	offset := 0
+	for _, config := range configs {
+		result := config.parser(parserRequest{
+			tokens: request.tokens[offset:],
+		})
+
+		offset += result.size
+
+		if result.error != nil {
+			return offset, result.error
+		}
+
+		config.onSuccess(result)
+	}
+
+	return offset, nil
 }

@@ -59,22 +59,3 @@ func ParseFile(tokens []*token.Token) (*File, error) {
 
 	return result.expression.file, result.error
 }
-
-func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error) {
-	offset := 0
-	for _, config := range configs {
-		result := config.parser(parserRequest{
-			tokens: request.tokens[offset:],
-		})
-
-		offset += result.size
-
-		if result.error != nil {
-			return offset, result.error
-		}
-
-		config.onSuccess(result)
-	}
-
-	return offset, nil
-}
