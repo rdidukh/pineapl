@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/rdidukh/pineapl/token"
 )
 
 var inputFileFlag = flag.String("i", "", "TODO: usage")
-
-var tokenTypeUnknown = &Token{
-	tokenType: TOKEN_TYPE_UNKNOWN,
-}
 
 func log(format string, a ...any) {
 	fmt.Printf(format, a...)
@@ -47,12 +45,12 @@ func main() {
 
 	log("  codeToCompile len=%d", len(codeToCompile))
 
-	tokens, err := GetTokens(codeToCompile)
+	tokens, err := token.GetTokens(codeToCompile)
 
 	log("")
 	log("TOKENS")
-	for i, token := range tokens {
-		log("  %-3d %-20s %3d..%2d   %-10q", i, token.tokenType, token.start, token.end, token.value)
+	for i, t := range tokens {
+		log("  %-3d %-20s %3d..%2d   %-10q", i, t.Type, t.Start, t.End, t.Value)
 	}
 	log("")
 

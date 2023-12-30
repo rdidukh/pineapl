@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+
+	"github.com/rdidukh/pineapl/token"
 )
 
 type Expression struct {
-	token     *Token
+	token     *token.Token
 	function  *Function
 	file      *File
 	parameter *Parameter
@@ -26,7 +28,7 @@ type File struct {
 }
 
 type expressionParserRequest struct {
-	tokens   []*Token
+	tokens   []*token.Token
 	callback expressionParserCallback
 }
 
@@ -50,7 +52,7 @@ func (c expressionParserConfig) onSuccess(result ExpressionParserResult) {
 	}
 }
 
-func ParseFile(tokens []*Token) (*File, error) {
+func ParseFile(tokens []*token.Token) (*File, error) {
 	file := &File{}
 
 	_, err := parseOneOfRepeated(expressionParserRequest{tokens: tokens},
@@ -64,18 +66,18 @@ func ParseFile(tokens []*Token) (*File, error) {
 	return file, err
 }
 
-func requiredToken(tokenType TokenType) expressionParserConfig {
+func requiredToken(tokenType token.Type) expressionParserConfig {
 	return requiredTokenWithCallback(tokenType, func(result ExpressionParserResult) {})
 }
 
-func requiredTokenWithCallback(tokenType TokenType, callback expressionParserCallback) expressionParserConfig {
+func requiredTokenWithCallback(tokenType token.Type, callback expressionParserCallback) expressionParserConfig {
 	return expressionParserConfig{
 		parser:   requiredTokenParser(tokenType),
 		callback: callback,
 	}
 }
 
-func requiredTokenParser(tokenType TokenType) expressionParser {
+func requiredTokenParser(tokenType token.Type) expressionParser {
 	return func(request expressionParserRequest) ExpressionParserResult {
 		tokens := request.tokens
 		if len(tokens) <= 0 {
@@ -84,7 +86,7 @@ func requiredTokenParser(tokenType TokenType) expressionParser {
 			}
 		}
 
-		actualTokenType := tokens[0].tokenType
+		actualTokenType := tokens[0].Type
 
 		if actualTokenType != tokenType {
 			return ExpressionParserResult{
@@ -99,16 +101,16 @@ func requiredTokenParser(tokenType TokenType) expressionParser {
 	}
 }
 
-func optionalToken(tokenType TokenType) expressionParserConfig {
+func optionalToken(tokenType token.Type) expressionParserConfig {
 	return expressionParserConfig{
 		parser: optionalTokenParser(tokenType),
 	}
 }
 
-func optionalTokenParser(tokenType TokenType) expressionParser {
+func optionalTokenParser(tokenType token.Type) expressionParser {
 	return func(request expressionParserRequest) ExpressionParserResult {
 		tokens := request.tokens
-		if len(tokens) <= 0 || tokens[0].tokenType != tokenType {
+		if len(tokens) <= 0 || tokens[0].Type != tokenType {
 			return ExpressionParserResult{}
 		}
 
@@ -130,10 +132,10 @@ func oneOfRepeatedParser(configs ...expressionParserConfig) expressionParser {
 }
 
 func parseOneOfRepeated(request expressionParserRequest, configs ...expressionParserConfig) (int, error) {
-	return parseOneOfRepeatedUntil(request, TOKEN_TYPE_EOF, configs...)
+	return parseOneOfRepeatedUntil(request, token.TYPE_EOF, configs...)
 }
 
-func oneOfRepeatedUntilParser(terminator TokenType, configs ...expressionParserConfig) expressionParser {
+func oneOfRepeatedUntilParser(terminator token.Type, configs ...expressionParserConfig) expressionParser {
 	return func(request expressionParserRequest) ExpressionParserResult {
 		size, err := parseOneOfRepeatedUntil(request, terminator, configs...)
 		return ExpressionParserResult{
@@ -143,11 +145,11 @@ func oneOfRepeatedUntilParser(terminator TokenType, configs ...expressionParserC
 	}
 }
 
-func parseOneOfRepeatedUntil(request expressionParserRequest, terminator TokenType, configs ...expressionParserConfig) (int, error) {
+func parseOneOfRepeatedUntil(request expressionParserRequest, terminator token.Type, configs ...expressionParserConfig) (int, error) {
 	offset := 0
 	tokens := request.tokens
 
-	for offset < len(tokens) && tokens[offset].tokenType != terminator {
+	for offset < len(tokens) && tokens[offset].Type != terminator {
 		size, err := parseOneOf(expressionParserRequest{
 			tokens: request.tokens[offset:],
 		}, configs...)
@@ -163,7 +165,7 @@ func parseOneOfRepeatedUntil(request expressionParserRequest, terminator TokenTy
 		return offset, fmt.Errorf("expected %s, found: EOF", terminator)
 	}
 
-	nextTokenType := tokens[offset].tokenType
+	nextTokenType := tokens[offset].Type
 
 	if nextTokenType != terminator {
 		return offset, fmt.Errorf("expected %s, found: %s", terminator, nextTokenType)
@@ -214,7 +216,7 @@ func parseOneOf(request expressionParserRequest, configs ...expressionParserConf
 	}
 
 	bestResult := ExpressionParserResult{
-		error: fmt.Errorf("Unexpected token: %s", request.tokens[0].tokenType),
+		error: fmt.Errorf("Unexpected token: %s", request.tokens[0].Type),
 		size:  -1,
 	}
 
@@ -244,17 +246,17 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 
 	size, err := parseAllOrdered(
 		request,
-		requiredToken(TOKEN_TYPE_KEYWORD_FUNC),
-		requiredToken(TOKEN_TYPE_WHITESPACE),
-		requiredTokenWithCallback(TOKEN_TYPE_IDENTIFIER,
+		requiredToken(token.TYPE_KEYWORD_FUNC),
+		requiredToken(token.TYPE_WHITESPACE),
+		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
 			func(result ExpressionParserResult) {
-				function.name = result.expression.token.value
+				function.name = result.expression.token.Value
 			}),
-		requiredToken(TOKEN_TYPE_ROUND_BRACKET_OPEN),
-		optionalToken(TOKEN_TYPE_WHITESPACE),
+		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
+		optionalToken(token.TYPE_WHITESPACE),
 		expressionParserConfig{
 			parser: oneOfRepeatedUntilParser(
-				TOKEN_TYPE_ROUND_BRACKET_CLOSE,
+				token.TYPE_ROUND_BRACKET_CLOSE,
 				expressionParserConfig{
 					parser: parameterParser,
 					callback: func(result ExpressionParserResult) {
@@ -263,10 +265,10 @@ func functionParser(request expressionParserRequest) ExpressionParserResult {
 				},
 			),
 		},
-		optionalToken(TOKEN_TYPE_WHITESPACE),
-		requiredToken(TOKEN_TYPE_CURLY_BRACKET_OPEN),
-		optionalToken(TOKEN_TYPE_WHITESPACE),
-		requiredToken(TOKEN_TYPE_CURLY_BRACKET_CLOSE),
+		optionalToken(token.TYPE_WHITESPACE),
+		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
+		optionalToken(token.TYPE_WHITESPACE),
+		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
 	)
 
 	return ExpressionParserResult{
@@ -283,17 +285,17 @@ func parameterParser(request expressionParserRequest) ExpressionParserResult {
 
 	size, err := parseAllOrdered(
 		request,
-		optionalToken(TOKEN_TYPE_WHITESPACE),
-		requiredTokenWithCallback(TOKEN_TYPE_IDENTIFIER,
+		optionalToken(token.TYPE_WHITESPACE),
+		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
 			func(result ExpressionParserResult) {
-				parameter.name = result.expression.token.value
+				parameter.name = result.expression.token.Value
 			}),
-		requiredToken(TOKEN_TYPE_WHITESPACE),
-		requiredTokenWithCallback(TOKEN_TYPE_IDENTIFIER,
+		requiredToken(token.TYPE_WHITESPACE),
+		requiredTokenWithCallback(token.TYPE_IDENTIFIER,
 			func(result ExpressionParserResult) {
-				parameter.paramType = result.expression.token.value
+				parameter.paramType = result.expression.token.Value
 			}),
-		requiredToken(TOKEN_TYPE_COMMA),
+		requiredToken(token.TYPE_COMMA),
 	)
 
 	return ExpressionParserResult{
