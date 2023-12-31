@@ -1,4 +1,4 @@
-func broky(x Int,y Float,){
+func broky(x Int, y Float, z String,){
 
 
 }

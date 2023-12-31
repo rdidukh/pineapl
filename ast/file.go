@@ -4,16 +4,11 @@ type File struct {
 	Functions []*Function
 }
 
-func fileParser(request parserRequest) parserResult {
+func file() parserConfig {
 	file := &File{}
-
-	size, err := parseOneOfRepeated(request,
-		parserConfig{
-			parser: functionParser,
-			callback: func(result parserResult) {
-				file.Functions = append(file.Functions, result.expression.function)
-			},
-		})
-
-	return parserResult{size: size, error: err, expression: &Expression{file: file}}
+	return oneOf(function().withCallback(
+		func(r parserResult) {
+			file.Functions = append(file.Functions, r.expression.function)
+		},
+	)).withExpression(&Expression{file: file})
 }

@@ -9,41 +9,25 @@ type Function struct {
 	Parameters []*Parameter
 }
 
-func functionParser(request parserRequest) parserResult {
+func function() parserConfig {
 	function := &Function{}
-
-	size, err := parseAllOrdered(
-		request,
+	return allOf(
 		requiredToken(token.TYPE_KEYWORD_FUNC),
 		requiredToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_IDENTIFIER).withCallback(
-			func(result parserResult) {
-				function.Name = result.expression.token.Value
+			func(r parserResult) {
+				function.Name = r.expression.token.Value
 			}),
 		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
-		parserConfig{
-			parser: oneOfRepeatedUntilParser(
-				token.TYPE_ROUND_BRACKET_CLOSE,
-				parserConfig{
-					parser: parameterParser,
-					callback: func(result parserResult) {
-						function.Parameters = append(function.Parameters, result.expression.parameter)
-					},
-				},
-			),
-		},
+		until(parameter().withCallback(
+			func(r parserResult) {
+				function.Parameters = append(function.Parameters, r.expression.parameter)
+			},
+		), token.TYPE_ROUND_BRACKET_CLOSE),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
-	)
-
-	return parserResult{
-		size:  size,
-		error: err,
-		expression: &Expression{
-			function: function,
-		},
-	}
+	).withExpression(&Expression{function: function})
 }

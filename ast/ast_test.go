@@ -14,12 +14,26 @@ type testCase struct {
 }
 
 var testCases = []testCase{
-	testCase{
+	{
 		code: `func main() {}`,
 		file: &File{
 			Functions: []*Function{
 				{
 					Name: "main",
+				},
+			},
+		},
+	},
+	{
+		code: `func main(x Int,) { }`,
+		file: &File{
+			Functions: []*Function{
+				{
+					Name: "main",
+					Parameters: []*Parameter{{
+						Name: "x",
+						Type: "Int",
+					}},
 				},
 			},
 		},
