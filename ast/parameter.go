@@ -9,7 +9,7 @@ type Parameter struct {
 	Type string
 }
 
-func parameter() parserConfig {
+func parameter() parser {
 	// TODO: this is incorrect as this can be used multiple times.
 	param := &Parameter{}
 	return allOf(

@@ -24,46 +24,46 @@ type parserResult struct {
 	expression *Expression
 }
 
-type parser func(parserRequest) parserResult
+type parserFunc func(parserRequest) parserResult
 type parserCallback func(result parserResult)
 
-type parserConfig struct {
-	parser parser
+type parser struct {
+	parserFunc parserFunc
 }
 
-func (c parserConfig) withCallback(callback parserCallback) parserConfig {
-	config := c
-	config.parser = func(request parserRequest) parserResult {
-		result := c.parser(request)
+func (p parser) withCallback(callback parserCallback) parser {
+	parser := p
+	parser.parserFunc = func(request parserRequest) parserResult {
+		result := p.parserFunc(request)
 		if result.error == nil {
 			callback(result)
 		}
 		return result
 	}
-	return config
+	return parser
 }
 
-func (c parserConfig) withDebug(debug string) parserConfig {
-	config := c
-	config.parser = func(request parserRequest) parserResult {
+func (p parser) withDebug(debug string) parser {
+	parser := p
+	parser.parserFunc = func(request parserRequest) parserResult {
 		logger.LogPadded(debugPadding, "Before calling parser %s %d", debug, len(request.tokens))
 		debugPadding += 1
-		result := c.parser(request)
+		result := p.parserFunc(request)
 		debugPadding -= 1
 		logger.LogPadded(debugPadding, "After calling parser %s expr=%v", debug, result.expression)
 		return result
 	}
-	return config
+	return parser
 }
 
-func (c parserConfig) withExpression(expression *Expression) parserConfig {
-	config := c
-	config.parser = func(request parserRequest) parserResult {
-		result := c.parser(request)
+func (p parser) withExpression(expression *Expression) parser {
+	parser := p
+	parser.parserFunc = func(request parserRequest) parserResult {
+		result := p.parserFunc(request)
 		result.expression = expression
 		return result
 	}
-	return config
+	return parser
 }
 
 func ParseString(code string) ([]*token.Token, *File, error) {
@@ -73,7 +73,7 @@ func ParseString(code string) ([]*token.Token, *File, error) {
 		return tokens, nil, err
 	}
 
-	result := file().parser(parserRequest{tokens: tokens})
+	result := file().parserFunc(parserRequest{tokens: tokens})
 
 	return tokens, result.expression.file, result.error
 }

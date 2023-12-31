@@ -9,7 +9,7 @@ type Function struct {
 	Parameters []*Parameter
 }
 
-func function() parserConfig {
+func function() parser {
 	function := &Function{}
 	return allOf(
 		requiredToken(token.TYPE_KEYWORD_FUNC),

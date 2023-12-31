@@ -6,68 +6,38 @@ import (
 	"github.com/rdidukh/pineapl/token"
 )
 
-type oneOfParser struct {
-	configs []parserConfig
-}
-
-func oneOf(configs ...parserConfig) parserConfig {
-	parser := oneOfParser{configs: configs}
-	return parserConfig{
-		parser: parser.parse,
+func oneOf(parsers ...parser) parser {
+	return parser{
+		parserFunc: func(request parserRequest) parserResult {
+			return parseOneOf(request, parsers...)
+		},
 	}
 }
 
-func (p oneOfParser) parse(request parserRequest) parserResult {
-	size, err := parseOneOf(request, p.configs...)
-	return parserResult{
-		size:  size,
-		error: err,
+func until(p parser, terminator token.Type) parser {
+	return parser{
+		parserFunc: func(request parserRequest) parserResult {
+			return parseUntil(request, terminator, p)
+		},
 	}
 }
 
-type untilParser struct {
-	config     parserConfig
-	terminator token.Type
-}
-
-func until(config parserConfig, terminator token.Type) parserConfig {
-	parser := untilParser{config: config, terminator: terminator}
-	return parserConfig{
-		parser: parser.parse,
-	}
-}
-
-func (p untilParser) parse(request parserRequest) parserResult {
-	size, err := parseUntil(request, p.terminator, p.config)
-	return parserResult{
-		size:  size,
-		error: err,
-	}
-}
-
-type allOfParser struct {
-	configs []parserConfig
-}
-
-func allOf(configs ...parserConfig) parserConfig {
-	parser := allOfParser{configs: configs}
-	return parserConfig{
-		parser: parser.parse,
-	}
-}
-
-func (p allOfParser) parse(request parserRequest) parserResult {
-	size, err := parseAllOrdered(request, p.configs...)
-	return parserResult{
-		size:  size,
-		error: err,
+func allOf(parsers ...parser) parser {
+	return parser{
+		parserFunc: func(request parserRequest) parserResult {
+			size, err := parseAllOrdered(request, parsers...)
+			return parserResult{
+				size:  size,
+				error: err,
+			}
+		},
 	}
 }
 
 // TODO: inline.
-func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
-	if len(configs) <= 0 {
-		return 0, nil
+func parseOneOf(request parserRequest, parsers ...parser) parserResult {
+	if len(parsers) <= 0 {
+		return parserResult{}
 	}
 
 	bestResult := parserResult{
@@ -75,11 +45,11 @@ func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
 		size:  -1,
 	}
 
-	for _, config := range configs {
-		result := config.parser(request)
+	for _, parser := range parsers {
+		result := parser.parserFunc(request)
 
 		if result.error == nil {
-			return result.size, nil
+			return result
 		}
 
 		if result.size > bestResult.size {
@@ -87,44 +57,50 @@ func parseOneOf(request parserRequest, configs ...parserConfig) (int, error) {
 		}
 	}
 
-	return bestResult.size, bestResult.error
+	return bestResult
 }
 
 // TODO: inline.
-func parseUntil(request parserRequest, terminator token.Type, config parserConfig) (int, error) {
+func parseUntil(request parserRequest, terminator token.Type, p parser) parserResult {
 	offset := 0
 	tokens := request.tokens
 
 	for offset < len(tokens) && tokens[offset].Type != terminator {
-		size, err := parseOneOf(parserRequest{
+		result := parseOneOf(parserRequest{
 			tokens: request.tokens[offset:],
-		}, config)
+		}, p)
 
-		if err != nil {
-			return size, err
+		if result.error != nil {
+			return result
 		}
 
-		offset += size
+		offset += result.size
 	}
 
 	if offset >= len(tokens) {
-		return offset, fmt.Errorf("expected %s, found: EOF", terminator)
+		return parserResult{
+			size:  offset,
+			error: fmt.Errorf("expected %s, found: EOF", terminator),
+		}
 	}
 
 	nextTokenType := tokens[offset].Type
 
 	if nextTokenType != terminator {
-		return offset, fmt.Errorf("expected %s, found: %s", terminator, nextTokenType)
+		return parserResult{
+			size:  offset,
+			error: fmt.Errorf("expected %s, found: %s", terminator, nextTokenType),
+		}
 	}
 
-	return offset + 1, nil
+	return parserResult{size: offset + 1}
 }
 
 // TODO: inline.
-func parseAllOrdered(request parserRequest, configs ...parserConfig) (int, error) {
+func parseAllOrdered(request parserRequest, parsers ...parser) (int, error) {
 	offset := 0
-	for _, config := range configs {
-		result := config.parser(parserRequest{
+	for _, parser := range parsers {
+		result := parser.parserFunc(parserRequest{
 			tokens: request.tokens[offset:],
 		})
 

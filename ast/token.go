@@ -10,10 +10,10 @@ type requiredTokenParser struct {
 	tokenType token.Type
 }
 
-func requiredToken(tokenType token.Type) parserConfig {
-	parser := requiredTokenParser{tokenType: tokenType}
-	return parserConfig{
-		parser: parser.parse,
+func requiredToken(tokenType token.Type) parser {
+	p := requiredTokenParser{tokenType: tokenType}
+	return parser{
+		parserFunc: p.parse,
 	}
 }
 
@@ -43,10 +43,10 @@ type optionalTokenParser struct {
 	tokenType token.Type
 }
 
-func optionalToken(tokenType token.Type) parserConfig {
-	parser := optionalTokenParser{tokenType: tokenType}
-	return parserConfig{
-		parser: parser.parse,
+func optionalToken(tokenType token.Type) parser {
+	p := optionalTokenParser{tokenType: tokenType}
+	return parser{
+		parserFunc: p.parse,
 	}
 }
 

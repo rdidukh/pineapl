@@ -4,7 +4,7 @@ type File struct {
 	Functions []*Function
 }
 
-func file() parserConfig {
+func file() parser {
 	file := &File{}
 	return oneOf(function().withCallback(
 		func(r parserResult) {
