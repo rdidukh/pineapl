@@ -8,6 +8,7 @@ import (
 )
 
 type testCase struct {
+	name  string
 	code  string
 	file  *File
 	error error
@@ -15,6 +16,7 @@ type testCase struct {
 
 var testCases = []testCase{
 	{
+		name: "Empty function",
 		code: `func main() {}`,
 		file: &File{
 			Functions: []*Function{
@@ -25,6 +27,7 @@ var testCases = []testCase{
 		},
 	},
 	{
+		name: "Function with one parameter",
 		code: `func main(x Int,) { }`,
 		file: &File{
 			Functions: []*Function{
@@ -41,18 +44,20 @@ var testCases = []testCase{
 }
 
 func TestParseString(t *testing.T) {
-	for i, tc := range testCases {
-		_, got, err := ParseString(tc.code)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, got, err := ParseString(tc.code)
 
-		gotJson, _ := json.Marshal(got)
-		wantJson, _ := json.Marshal(tc.file)
+			gotJson, _ := json.Marshal(got)
+			wantJson, _ := json.Marshal(tc.file)
 
-		if err != tc.error {
-			t.Errorf("TestParseString [%d]\nGot:\n%v\nWant:\n%v", i, err, tc.error)
-		}
+			if err != tc.error {
+				t.Errorf("TestParseString \nGot:\n%v\nWant:\n%v", err, tc.error)
+			}
 
-		if !cmp.Equal(got, tc.file) {
-			t.Errorf("TestParseString [%d]\nGot:\n%v\nWant:\n%v", i, string(gotJson), string(wantJson))
-		}
+			if !cmp.Equal(got, tc.file) {
+				t.Errorf("TestParseString \nGot:\n%v\nWant:\n%v", string(gotJson), string(wantJson))
+			}
+		})
 	}
 }
