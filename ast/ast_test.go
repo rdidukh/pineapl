@@ -41,6 +41,21 @@ var testCases = []testCase{
 			},
 		},
 	},
+	{
+		name: "Function with two parameters",
+		code: `func main(int Int, str String,) { }`,
+		file: &File{
+			Functions: []*Function{
+				{
+					Name: "main",
+					Parameters: []*Parameter{{
+						Name: "int",
+						Type: "Int",
+					}, {Name: "str", Type: "String"}},
+				},
+			},
+		},
+	},
 }
 
 func TestParseString(t *testing.T) {

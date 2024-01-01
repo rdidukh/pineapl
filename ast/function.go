@@ -10,7 +10,7 @@ type Function struct {
 }
 
 func function() parser {
-	function := &Function{}
+	var function *Function
 	return allOf(
 		requiredToken(token.TYPE_KEYWORD_FUNC),
 		requiredToken(token.TYPE_WHITESPACE),
@@ -29,5 +29,7 @@ func function() parser {
 		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
-	).withExpression(&Expression{function: function})
+	).withInit(func() {
+		function = &Function{}
+	}).withExpression(func() *Expression { return &Expression{function: function} })
 }

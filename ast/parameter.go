@@ -10,8 +10,7 @@ type Parameter struct {
 }
 
 func parameter() parser {
-	// TODO: this is incorrect as this can be used multiple times.
-	param := &Parameter{}
+	var param *Parameter
 	return allOf(
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_IDENTIFIER).withCallback(
@@ -24,5 +23,7 @@ func parameter() parser {
 				param.Type = r.expression.token.Value
 			}),
 		requiredToken(token.TYPE_COMMA),
-	).withExpression(&Expression{parameter: param})
+	).withInit(func() {
+		param = &Parameter{}
+	}).withExpression(func() *Expression { return &Expression{parameter: param} })
 }

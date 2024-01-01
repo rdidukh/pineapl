@@ -43,6 +43,16 @@ func (p parser) withCallback(callback parserCallback) parser {
 	return parser
 }
 
+// TODO: find a more reliable (stateless) way of reusing a parser.
+func (p parser) withInit(setUpFunc func()) parser {
+	parser := p
+	parser.parserFunc = func(request parserRequest) parserResult {
+		setUpFunc()
+		return p.parserFunc(request)
+	}
+	return parser
+}
+
 func (p parser) withDebug(debug string) parser {
 	parser := p
 	parser.parserFunc = func(request parserRequest) parserResult {
@@ -56,11 +66,11 @@ func (p parser) withDebug(debug string) parser {
 	return parser
 }
 
-func (p parser) withExpression(expression *Expression) parser {
+func (p parser) withExpression(exprFunc func() *Expression) parser {
 	parser := p
 	parser.parserFunc = func(request parserRequest) parserResult {
 		result := p.parserFunc(request)
-		result.expression = expression
+		result.expression = exprFunc()
 		return result
 	}
 	return parser

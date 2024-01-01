@@ -5,10 +5,12 @@ type File struct {
 }
 
 func file() parser {
-	file := &File{}
+	var file *File
 	return oneOf(function().withCallback(
 		func(r parserResult) {
 			file.Functions = append(file.Functions, r.expression.function)
 		},
-	)).withExpression(&Expression{file: file})
+	)).withInit(func() {
+		file = &File{}
+	}).withExpression(func() *Expression { return &Expression{file: file} })
 }
