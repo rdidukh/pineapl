@@ -66,9 +66,9 @@ func parseUntil(request parserRequest, terminator token.Type, p parser) parserRe
 	tokens := request.tokens
 
 	for offset < len(tokens) && tokens[offset].Type != terminator {
-		result := parseOneOf(parserRequest{
+		result := p.parserFunc(parserRequest{
 			tokens: request.tokens[offset:],
-		}, p)
+		})
 
 		if result.error != nil {
 			return result

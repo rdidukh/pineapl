@@ -43,7 +43,7 @@ func (p parser) withCallback(callback parserCallback) parser {
 	return parser
 }
 
-// TODO: find a more reliable (stateless) way of reusing a parser.
+// TODO: find a thread safe (stateless) way of reusing a parser.
 func (p parser) withInit(setUpFunc func()) parser {
 	parser := p
 	parser.parserFunc = func(request parserRequest) parserResult {
