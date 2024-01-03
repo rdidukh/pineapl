@@ -87,3 +87,12 @@ func ParseString(code string) ([]*token.Token, *File, error) {
 
 	return tokens, result.expression.file, result.error
 }
+
+func Codegen(code string) (string, error) {
+	_, file, err := ParseString(code)
+	if err != nil {
+		return "", err
+	}
+
+	return file.Codegen()
+}

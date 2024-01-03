@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -20,7 +22,20 @@ func main() {
 		logger.ErrorExit("Missing -i")
 	}
 
-	inputFileContents, err := os.ReadFile(*inputFileFlag)
+	output, err := compile(*inputFileFlag)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	logger.Log("")
+	logger.Log("OUTPUT")
+	logger.Log("%s", output)
+	logger.Log("")
+}
+
+func compile(filename string) (string, error) {
+	inputFileContents, err := os.ReadFile(filename)
 
 	if err != nil {
 		logger.ErrorExit("File read error: %s", err.Error())
@@ -36,14 +51,22 @@ func main() {
 	logger.Log("")
 
 	if err != nil {
-		logger.ErrorExit("Token error: %s", err)
+		return "", fmt.Errorf("token error: %s", err)
 	}
 
 	printFile(file)
 
 	if err != nil {
-		logger.ErrorExit("Expression parser error: %s", err)
+		return "", fmt.Errorf("expression parser error: %s", err)
 	}
+
+	output, err := file.Codegen()
+
+	if err != nil {
+		return "", fmt.Errorf("codegen error: %s", err)
+	}
+
+	return output, err
 }
 
 func printFile(file *ast.File) {

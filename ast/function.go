@@ -1,6 +1,9 @@
 package ast
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/rdidukh/pineapl/token"
 )
 
@@ -32,4 +35,19 @@ func function() parser {
 	).withInit(func() {
 		function = &Function{}
 	}).withExpression(func() *Expression { return &Expression{function: function} })
+}
+
+func (f *Function) codegen() string {
+	code := strings.Builder{}
+
+	code.WriteString(fmt.Sprintf("define void @%s(", f.Name))
+	for i, param := range f.Parameters {
+		code.WriteString(fmt.Sprintf("%s %s", param.Type, param.Name))
+		if i+1 < len(f.Parameters) {
+			code.WriteString(", ")
+		}
+	}
+	code.WriteString(") {\n}\n")
+
+	return code.String()
 }
