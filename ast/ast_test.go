@@ -61,7 +61,7 @@ var testCases = []testCase{
 func TestParseString(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, got, err := ParseString(tc.code)
+			got, err := ParseString(tc.code)
 
 			gotJson, _ := json.Marshal(got)
 			wantJson, _ := json.Marshal(tc.file)

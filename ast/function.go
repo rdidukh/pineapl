@@ -23,11 +23,10 @@ func function() parser {
 			}),
 		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
-		until(parameter().withCallback(
-			func(r parserResult) {
-				function.Parameters = append(function.Parameters, r.expression.parameter)
-			},
-		), token.TYPE_ROUND_BRACKET_CLOSE),
+		parameter().toOptional().toRepeated().withCallback(func(r parserResult) {
+			function.Parameters = append(function.Parameters, r.expression.parameter)
+		}),
+		requiredToken(token.TYPE_ROUND_BRACKET_CLOSE),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),

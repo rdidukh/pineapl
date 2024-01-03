@@ -30,6 +30,10 @@ type Token struct {
 	End   int
 }
 
+func (t *Token) IsEof() bool {
+	return t.Type == TYPE_EOF
+}
+
 func (t Type) String() string {
 	switch t {
 	case TYPE_UNKNOWN:
@@ -165,6 +169,38 @@ func GetTokens(code string) ([]*Token, error) {
 	secondPass(tokens)
 
 	return tokens, nil
+}
+
+func GetIterator(code string) (*Iterator, error) {
+	tokens, err := GetTokens(code)
+
+	if err != nil {
+		return &Iterator{}, err
+	}
+
+	return &Iterator{
+		tokens: tokens,
+	}, nil
+}
+
+type Iterator struct {
+	tokens []*Token
+	index  int
+}
+
+func (it Iterator) IsEof() bool {
+	return it.index+1 >= len(it.tokens)
+}
+
+func (it *Iterator) Advance() {
+	it.index += 1
+}
+
+func (it *Iterator) Token() *Token {
+	if it.index >= len(it.tokens) {
+		return &Token{Type: TYPE_EOF}
+	}
+	return it.tokens[it.index]
 }
 
 // TODO: rename.

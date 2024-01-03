@@ -41,14 +41,7 @@ func compile(filename string) (string, error) {
 		logger.ErrorExit("File read error: %s", err.Error())
 	}
 
-	tokens, file, err := ast.ParseString(string(inputFileContents))
-
-	logger.Log("")
-	logger.Log("TOKENS")
-	for i, t := range tokens {
-		logger.Log("  %-3d %-20s %3d..%2d   %-10q", i, t.Type, t.Start, t.End, t.Value)
-	}
-	logger.Log("")
+	file, err := ast.ParseString(string(inputFileContents))
 
 	if err != nil {
 		return "", fmt.Errorf("token error: %s", err)

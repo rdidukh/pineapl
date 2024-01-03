@@ -6,58 +6,32 @@ import (
 	"github.com/rdidukh/pineapl/token"
 )
 
-type requiredTokenParser struct {
-	tokenType token.Type
-}
-
 func requiredToken(tokenType token.Type) parser {
-	p := requiredTokenParser{tokenType: tokenType}
 	return parser{
-		parserFunc: p.parse,
+		parserFunc: func(request parserRequest) parserResult {
+			return parseToken(request, tokenType)
+		},
+		firstTokenTypes: []token.Type{tokenType},
 	}
-}
-
-func (p requiredTokenParser) parse(request parserRequest) parserResult {
-	tokens := request.tokens
-	if len(tokens) <= 0 {
-		return parserResult{
-			error: fmt.Errorf("expected %s, found: EOF", p.tokenType),
-		}
-	}
-
-	actualTokenType := tokens[0].Type
-
-	if actualTokenType != p.tokenType {
-		return parserResult{
-			error: fmt.Errorf("expected %s, found: %s", p.tokenType, actualTokenType),
-		}
-	}
-
-	return parserResult{
-		expression: &Expression{token: tokens[0]},
-		size:       1,
-	}
-}
-
-type optionalTokenParser struct {
-	tokenType token.Type
 }
 
 func optionalToken(tokenType token.Type) parser {
-	p := optionalTokenParser{tokenType: tokenType}
-	return parser{
-		parserFunc: p.parse,
-	}
+	return requiredToken(tokenType).toOptional()
 }
 
-func (p optionalTokenParser) parse(request parserRequest) parserResult {
-	tokens := request.tokens
-	if len(tokens) <= 0 || tokens[0].Type != p.tokenType {
-		return parserResult{}
+func parseToken(request parserRequest, tokenType token.Type) parserResult {
+	it := request.iterator
+	token := it.Token()
+
+	if token.Type != tokenType {
+		return parserResult{
+			error: fmt.Errorf("expected %s, found: %s(%q)", tokenType, token.Type, token.Value),
+		}
 	}
 
+	it.Advance()
+
 	return parserResult{
-		expression: &Expression{token: tokens[0]},
-		size:       1,
+		expression: &Expression{token: token},
 	}
 }

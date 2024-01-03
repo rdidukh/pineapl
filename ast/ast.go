@@ -1,6 +1,9 @@
 package ast
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/rdidukh/pineapl/logger"
 	"github.com/rdidukh/pineapl/token"
 )
@@ -15,11 +18,10 @@ type Expression struct {
 }
 
 type parserRequest struct {
-	tokens []*token.Token
+	iterator *token.Iterator
 }
 
 type parserResult struct {
-	size       int
 	error      error
 	expression *Expression
 }
@@ -28,68 +30,120 @@ type parserFunc func(parserRequest) parserResult
 type parserCallback func(result parserResult)
 
 type parser struct {
-	parserFunc parserFunc
+	parserFunc      parserFunc
+	firstTokenTypes []token.Type
+	optional        bool
+	repeated        bool
+	initFunc        func()
+	callback        parserCallback
+	debug           string
+	expressionFunc  func() *Expression
+}
+
+func (p parser) toOptional() parser {
+	result := p
+	result.optional = true
+	return result
+}
+
+func (p parser) toRepeated() parser {
+	result := p
+	result.repeated = true
+	return result
+}
+
+func (p parser) parse(request parserRequest) parserResult {
+	it := request.iterator
+	token := it.Token()
+	eof := it.IsEof()
+	matchesToken := slices.Contains(p.firstTokenTypes, token.Type) // TODO && !eof
+	if !p.optional && (!matchesToken || eof) {
+		return parserResult{
+			error: fmt.Errorf("unexpected token %s(%q), expected: %s", token.Type, token.Value, p.firstTokenTypes),
+		}
+	}
+
+	if p.optional && (!matchesToken || eof) {
+		return parserResult{}
+	}
+
+	if !matchesToken {
+		panic("!matchesToken")
+	}
+
+	if p.initFunc != nil {
+		p.initFunc()
+	}
+
+	if p.debug != "" {
+		logger.LogPadded(debugPadding, "Before calling parser %s", p.debug)
+		debugPadding += 1
+	}
+	result := p.parserFunc(request)
+	if p.debug != "" {
+		logger.LogPadded(debugPadding, "After calling parser %s expr=%v", p.debug, result.expression)
+		debugPadding -= 1
+	}
+
+	if result.error != nil {
+		return result
+	}
+
+	if p.expressionFunc != nil {
+		result.expression = p.expressionFunc()
+	}
+
+	if p.callback != nil {
+		p.callback(result)
+	}
+
+	if !p.repeated {
+		return result
+	}
+
+	// TODO: optimize recursion.
+	return p.toOptional().parse(request)
 }
 
 func (p parser) withCallback(callback parserCallback) parser {
 	parser := p
-	parser.parserFunc = func(request parserRequest) parserResult {
-		result := p.parserFunc(request)
-		if result.error == nil {
-			callback(result)
-		}
-		return result
-	}
+	parser.callback = callback
 	return parser
 }
 
 // TODO: find a thread safe (stateless) way of reusing a parser.
 func (p parser) withInit(setUpFunc func()) parser {
 	parser := p
-	parser.parserFunc = func(request parserRequest) parserResult {
-		setUpFunc()
-		return p.parserFunc(request)
-	}
+	parser.initFunc = setUpFunc
 	return parser
 }
 
 func (p parser) withDebug(debug string) parser {
 	parser := p
-	parser.parserFunc = func(request parserRequest) parserResult {
-		logger.LogPadded(debugPadding, "Before calling parser %s %d", debug, len(request.tokens))
-		debugPadding += 1
-		result := p.parserFunc(request)
-		debugPadding -= 1
-		logger.LogPadded(debugPadding, "After calling parser %s expr=%v", debug, result.expression)
-		return result
-	}
+	p.debug = debug
 	return parser
 }
 
 func (p parser) withExpression(exprFunc func() *Expression) parser {
 	parser := p
-	parser.parserFunc = func(request parserRequest) parserResult {
-		result := p.parserFunc(request)
-		result.expression = exprFunc()
-		return result
-	}
+	parser.expressionFunc = exprFunc
 	return parser
 }
 
-func ParseString(code string) ([]*token.Token, *File, error) {
-	tokens, err := token.GetTokens(code)
+func ParseString(code string) (*File, error) {
+	iterator, err := token.GetIterator(code)
 
 	if err != nil {
-		return tokens, nil, err
+		return nil, err
 	}
 
-	result := file().parserFunc(parserRequest{tokens: tokens})
+	result := file().parse(parserRequest{iterator: iterator})
 
-	return tokens, result.expression.file, result.error
+	return result.expression.file, result.error
 }
 
 func Codegen(code string) (string, error) {
-	_, file, err := ParseString(code)
+	file, err := ParseString(code)
 	if err != nil {
 		return "", err
 	}
