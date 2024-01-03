@@ -22,22 +22,26 @@ type parserRequest struct {
 }
 
 type parserResult struct {
+	// Set by parseFunc
 	error      error
 	expression *Expression
+
+	// Set by parser.parse().
+	emitted map[int][]*Expression
 }
 
 type parserFunc func(parserRequest) parserResult
-type parserCallback func(result parserResult)
+type listenerFunc func(e *Expression, key int, emitted *Expression)
 
 type parser struct {
 	parserFunc      parserFunc
 	firstTokenTypes []token.Type
 	optional        bool
 	repeated        bool
-	initFunc        func()
-	callback        parserCallback
 	debug           string
-	expressionFunc  func() *Expression
+	emitKey         int
+	exprFunc        func() *Expression
+	listenerFunc    listenerFunc
 }
 
 func (p parser) toOptional() parser {
@@ -50,6 +54,13 @@ func (p parser) toRepeated() parser {
 	result := p
 	result.repeated = true
 	return result
+}
+
+func logDebug(tag string, format string, a ...any) {
+	if tag == "" {
+		return
+	}
+	logger.LogPadded(debugPadding, fmt.Sprintf("[%s] %s", tag, format), a...)
 }
 
 func (p parser) parse(request parserRequest) parserResult {
@@ -71,62 +82,75 @@ func (p parser) parse(request parserRequest) parserResult {
 		panic("!matchesToken")
 	}
 
-	if p.initFunc != nil {
-		p.initFunc()
-	}
-
-	if p.debug != "" {
-		logger.LogPadded(debugPadding, "Before calling parser %s", p.debug)
-		debugPadding += 1
-	}
+	logDebug(p.debug, "Before calling parserFunc")
+	debugPadding++
 	result := p.parserFunc(request)
-	if p.debug != "" {
-		logger.LogPadded(debugPadding, "After calling parser %s expr=%v", p.debug, result.expression)
-		debugPadding -= 1
-	}
+	debugPadding--
+	logDebug(p.debug, "After calling parserFunc")
 
 	if result.error != nil {
 		return result
 	}
 
-	if p.expressionFunc != nil {
-		result.expression = p.expressionFunc()
+	repeatedResult := parserResult{}
+	if p.repeated {
+		// TODO: optimize recursion.
+		repeatedResult = p.toOptional().parse(request)
 	}
 
-	if p.callback != nil {
-		p.callback(result)
+	if repeatedResult.error != nil {
+		return repeatedResult
 	}
 
-	if !p.repeated {
-		return result
+	expression := result.expression
+	if result.expression == nil && p.exprFunc != nil {
+		expression = p.exprFunc()
+
+		for key, exprs := range result.emitted {
+			for _, emitted := range exprs {
+				p.listenerFunc(expression, key, emitted)
+			}
+		}
 	}
 
-	// TODO: optimize recursion.
-	return p.toOptional().parse(request)
+	emittedExpressions := repeatedResult.emitted
+
+	if p.emitKey != 0 && expression != nil {
+		if emittedExpressions == nil {
+			emittedExpressions = map[int][]*Expression{}
+		}
+
+		emittedExpressions[p.emitKey] = append([]*Expression{expression}, emittedExpressions[p.emitKey]...)
+	}
+
+	finalResult := parserResult{
+		emitted: emittedExpressions,
+	}
+
+	return finalResult
 }
 
-func (p parser) withCallback(callback parserCallback) parser {
+func (p parser) emit(key int) parser {
 	parser := p
-	parser.callback = callback
+	parser.emitKey = key
 	return parser
 }
 
-// TODO: find a thread safe (stateless) way of reusing a parser.
-func (p parser) withInit(setUpFunc func()) parser {
+func (p parser) listen(listener listenerFunc) parser {
 	parser := p
-	parser.initFunc = setUpFunc
-	return parser
-}
-
-func (p parser) withDebug(debug string) parser {
-	parser := p
-	p.debug = debug
+	parser.listenerFunc = listener
 	return parser
 }
 
 func (p parser) withExpression(exprFunc func() *Expression) parser {
 	parser := p
-	parser.expressionFunc = exprFunc
+	parser.exprFunc = exprFunc
+	return parser
+}
+
+func (p parser) withDebug(debug string) parser {
+	parser := p
+	parser.debug = debug
 	return parser
 }
 
@@ -137,9 +161,15 @@ func ParseString(code string) (*File, error) {
 		return nil, err
 	}
 
-	result := file().parse(parserRequest{iterator: iterator})
+	const fileKey = 1
 
-	return result.expression.file, result.error
+	result := file().emit(fileKey).parse(parserRequest{iterator: iterator})
+
+	if result.error != nil {
+		return nil, result.error
+	}
+
+	return result.emitted[fileKey][0].file, nil
 }
 
 func Codegen(code string) (string, error) {

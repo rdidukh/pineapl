@@ -7,14 +7,13 @@ type File struct {
 }
 
 func file() parser {
-	var file *File
-	return oneOf(function().withCallback(
-		func(r parserResult) {
-			file.Functions = append(file.Functions, r.expression.function)
-		},
-	)).withInit(func() {
-		file = &File{}
-	}).withExpression(func() *Expression { return &Expression{file: file} })
+	const functionKey = 1
+	return oneOf(function().emit(functionKey)).withExpression(func() *Expression { return &Expression{file: &File{}} }).listen(func(e *Expression, key int, emitted *Expression) {
+		switch key {
+		case functionKey:
+			e.file.Functions = append(e.file.Functions, emitted.function)
+		}
+	}).withDebug("file")
 }
 
 func (f *File) Codegen() (string, error) {

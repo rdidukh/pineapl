@@ -12,6 +12,7 @@ func requiredToken(tokenType token.Type) parser {
 			return parseToken(request, tokenType)
 		},
 		firstTokenTypes: []token.Type{tokenType},
+		debug:           fmt.Sprintf("token %s", tokenType),
 	}
 }
 

@@ -13,27 +13,31 @@ type Function struct {
 }
 
 func function() parser {
-	var function *Function
+	const (
+		functionNameKey  = 1
+		functionParamKey = 2
+	)
+
 	return allOf(
 		requiredToken(token.TYPE_KEYWORD_FUNC),
 		requiredToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_IDENTIFIER).withCallback(
-			func(r parserResult) {
-				function.Name = r.expression.token.Value
-			}),
+		requiredToken(token.TYPE_IDENTIFIER).emit(functionNameKey),
 		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
-		parameter().toOptional().toRepeated().withCallback(func(r parserResult) {
-			function.Parameters = append(function.Parameters, r.expression.parameter)
-		}),
+		parameter().toOptional().toRepeated().emit(functionParamKey),
 		requiredToken(token.TYPE_ROUND_BRACKET_CLOSE),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
-	).withInit(func() {
-		function = &Function{}
-	}).withExpression(func() *Expression { return &Expression{function: function} })
+	).withExpression(func() *Expression { return &Expression{function: &Function{}} }).listen(func(e *Expression, key int, emitted *Expression) {
+		switch key {
+		case functionNameKey:
+			e.function.Name = emitted.token.Value
+		case functionParamKey:
+			e.function.Parameters = append(e.function.Parameters, emitted.parameter)
+		}
+	}).withDebug("function")
 }
 
 func (f *Function) codegen() string {

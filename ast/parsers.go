@@ -42,15 +42,24 @@ func allOf(parsers ...parser) parser {
 
 	return parser{
 		parserFunc: func(request parserRequest) parserResult {
+			mergedResult := parserResult{}
+
 			for _, parser := range parsers {
 				result := parser.parse(request)
 
 				if result.error != nil {
 					return result
 				}
+
+				for key, exprs := range result.emitted {
+					if mergedResult.emitted == nil {
+						mergedResult.emitted = map[int][]*Expression{}
+					}
+					mergedResult.emitted[key] = append(mergedResult.emitted[key], exprs...)
+				}
 			}
 
-			return parserResult{}
+			return mergedResult
 		},
 		firstTokenTypes: firstTokenTypes,
 	}
