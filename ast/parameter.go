@@ -11,22 +11,24 @@ type Parameter struct {
 
 func parameter() parser {
 	const (
-		paramNameKey = iota + 1
-		paramTypeKey
+		paramNameTag = iota + 1
+		paramTypeTag
 	)
 	return allOf(
 		optionalToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_IDENTIFIER).emit(paramNameKey),
+		requiredToken(token.TYPE_IDENTIFIER).withTag(paramNameTag),
 		requiredToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_IDENTIFIER).emit(paramTypeKey),
+		requiredToken(token.TYPE_IDENTIFIER).withTag(paramTypeTag),
 		requiredToken(token.TYPE_COMMA),
-	).withExpression(func() *Expression { return &Expression{parameter: &Parameter{}} }).listen(
-		func(e *Expression, key int, emitted *Expression) {
-			switch key {
-			case paramNameKey:
-				e.parameter.Name = emitted.token.Value
-			case paramTypeKey:
-				e.parameter.Type = emitted.token.Value
+	).withExpression(
+		func() *Expression { return &Expression{parameter: &Parameter{}} },
+	).listen(
+		func(e *Expression, tag int, te *Expression) {
+			switch tag {
+			case paramNameTag:
+				e.parameter.Name = te.token.Value
+			case paramTypeTag:
+				e.parameter.Type = te.token.Value
 			}
 		},
 	).withDebug("parameter")

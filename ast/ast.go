@@ -21,17 +21,22 @@ type parserRequest struct {
 	iterator *token.Iterator
 }
 
+type taggedExpression struct {
+	expression *Expression
+	tag        int
+}
+
 type parserResult struct {
 	// Set by parseFunc
 	error      error
 	expression *Expression
 
 	// Set by parser.parse().
-	emitted map[int][]*Expression
+	taggedExpressions []taggedExpression
 }
 
 type parserFunc func(parserRequest) parserResult
-type listenerFunc func(e *Expression, key int, emitted *Expression)
+type listenerFunc func(e *Expression, tag int, taggedExpr *Expression)
 
 type parser struct {
 	parserFunc      parserFunc
@@ -39,7 +44,7 @@ type parser struct {
 	optional        bool
 	repeated        bool
 	debug           string
-	emitKey         int
+	tag             int
 	exprFunc        func() *Expression
 	listenerFunc    listenerFunc
 }
@@ -106,33 +111,27 @@ func (p parser) parse(request parserRequest) parserResult {
 	if result.expression == nil && p.exprFunc != nil {
 		expression = p.exprFunc()
 
-		for key, exprs := range result.emitted {
-			for _, emitted := range exprs {
-				p.listenerFunc(expression, key, emitted)
-			}
+		for _, te := range result.taggedExpressions {
+			p.listenerFunc(expression, te.tag, te.expression)
 		}
 	}
 
-	emittedExpressions := repeatedResult.emitted
+	taggedExpressions := repeatedResult.taggedExpressions
 
-	if p.emitKey != 0 && expression != nil {
-		if emittedExpressions == nil {
-			emittedExpressions = map[int][]*Expression{}
-		}
-
-		emittedExpressions[p.emitKey] = append([]*Expression{expression}, emittedExpressions[p.emitKey]...)
+	if p.tag != 0 && expression != nil {
+		taggedExpressions = append([]taggedExpression{{expression: expression, tag: p.tag}}, taggedExpressions...)
 	}
 
 	finalResult := parserResult{
-		emitted: emittedExpressions,
+		taggedExpressions: taggedExpressions,
 	}
 
 	return finalResult
 }
 
-func (p parser) emit(key int) parser {
+func (p parser) withTag(tag int) parser {
 	parser := p
-	parser.emitKey = key
+	parser.tag = tag
 	return parser
 }
 
@@ -163,13 +162,13 @@ func ParseString(code string) (*File, error) {
 
 	const fileKey = 1
 
-	result := file().emit(fileKey).parse(parserRequest{iterator: iterator})
+	result := file().withTag(fileKey).parse(parserRequest{iterator: iterator})
 
 	if result.error != nil {
 		return nil, result.error
 	}
 
-	return result.emitted[fileKey][0].file, nil
+	return result.taggedExpressions[0].expression.file, nil
 }
 
 func Codegen(code string) (string, error) {

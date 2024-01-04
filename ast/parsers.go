@@ -51,12 +51,7 @@ func allOf(parsers ...parser) parser {
 					return result
 				}
 
-				for key, exprs := range result.emitted {
-					if mergedResult.emitted == nil {
-						mergedResult.emitted = map[int][]*Expression{}
-					}
-					mergedResult.emitted[key] = append(mergedResult.emitted[key], exprs...)
-				}
+				mergedResult.taggedExpressions = append(mergedResult.taggedExpressions, result.taggedExpressions...)
 			}
 
 			return mergedResult

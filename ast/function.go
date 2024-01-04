@@ -14,30 +14,34 @@ type Function struct {
 
 func function() parser {
 	const (
-		functionNameKey = iota + 1
-		functionParamKey
+		functionNameTag = iota + 1
+		functionParamTag
 	)
 
 	return allOf(
 		requiredToken(token.TYPE_KEYWORD_FUNC),
 		requiredToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_IDENTIFIER).emit(functionNameKey),
+		requiredToken(token.TYPE_IDENTIFIER).withTag(functionNameTag),
 		requiredToken(token.TYPE_ROUND_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
-		parameter().toOptional().toRepeated().emit(functionParamKey),
+		parameter().toOptional().toRepeated().withTag(functionParamTag),
 		requiredToken(token.TYPE_ROUND_BRACKET_CLOSE),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
 		optionalToken(token.TYPE_WHITESPACE),
 		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
-	).withExpression(func() *Expression { return &Expression{function: &Function{}} }).listen(func(e *Expression, key int, emitted *Expression) {
-		switch key {
-		case functionNameKey:
-			e.function.Name = emitted.token.Value
-		case functionParamKey:
-			e.function.Parameters = append(e.function.Parameters, emitted.parameter)
-		}
-	}).withDebug("function")
+	).withExpression(
+		func() *Expression { return &Expression{function: &Function{}} },
+	).listen(
+		func(e *Expression, tag int, te *Expression) {
+			switch tag {
+			case functionNameTag:
+				e.function.Name = te.token.Value
+			case functionParamTag:
+				e.function.Parameters = append(e.function.Parameters, te.parameter)
+			}
+		},
+	).withDebug("function")
 }
 
 func (f *Function) codegen() string {
