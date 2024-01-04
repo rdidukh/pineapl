@@ -1,11 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/rdidukh/pineapl/ast"
 	"github.com/rdidukh/pineapl/logger"
@@ -63,23 +63,13 @@ func compile(filename string) (string, error) {
 }
 
 func printFile(file *ast.File) {
-	logger.Log("")
-	logger.Log("FILE ")
-	for _, function := range file.Functions {
-		printFunction(function, 1)
+	jsonFile, err := json.MarshalIndent(file, "", " ")
+	if err != nil {
+		logger.ErrorExit("marshal error: %s", err)
 	}
+
 	logger.Log("")
-}
-
-func printFunction(function *ast.Function, padding int) {
-	paddingString := strings.Repeat(" ", 2*padding)
-	logger.Log("%sFUNCTION %s", paddingString, function.Name)
-	for _, parameter := range function.Parameters {
-		printParameter(parameter, padding+1)
-	}
-}
-
-func printParameter(parameter *ast.Parameter, padding int) {
-	paddingString := strings.Repeat(" ", 2*padding)
-	logger.Log("%sPARAMETER %s %s", paddingString, parameter.Name, parameter.Type)
+	logger.Log("FILE")
+	logger.Log(string(jsonFile))
+	logger.Log("")
 }

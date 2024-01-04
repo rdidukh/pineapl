@@ -11,10 +11,12 @@ import (
 var debugPadding = 0
 
 type Expression struct {
-	token     *token.Token
-	function  *Function
-	file      *File
-	parameter *Parameter
+	token        *token.Token
+	function     *Function
+	file         *File
+	parameter    *Parameter
+	codeBlock    *CodeBlock
+	functionCall *FunctionCall
 }
 
 type parserRequest struct {

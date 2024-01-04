@@ -21,7 +21,8 @@ var testCases = []testCase{
 		file: &File{
 			Functions: []*Function{
 				{
-					Name: "main",
+					Name:      "main",
+					CodeBlock: &CodeBlock{},
 				},
 			},
 		},
@@ -37,6 +38,7 @@ var testCases = []testCase{
 						Name: "x",
 						Type: "Int",
 					}},
+					CodeBlock: &CodeBlock{},
 				},
 			},
 		},
@@ -52,6 +54,7 @@ var testCases = []testCase{
 						Name: "int",
 						Type: "Int",
 					}, {Name: "str", Type: "String"}},
+					CodeBlock: &CodeBlock{},
 				},
 			},
 		},

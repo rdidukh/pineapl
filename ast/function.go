@@ -10,12 +10,14 @@ import (
 type Function struct {
 	Name       string
 	Parameters []*Parameter
+	CodeBlock  *CodeBlock
 }
 
 func function() parser {
 	const (
 		functionNameTag = iota + 1
 		functionParamTag
+		functionCodeBlockTag
 	)
 
 	return allOf(
@@ -27,9 +29,7 @@ func function() parser {
 		parameter().toOptional().toRepeated().withTag(functionParamTag),
 		requiredToken(token.TYPE_ROUND_BRACKET_CLOSE),
 		optionalToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_CURLY_BRACKET_OPEN),
-		optionalToken(token.TYPE_WHITESPACE),
-		requiredToken(token.TYPE_CURLY_BRACKET_CLOSE),
+		codeBlock().withTag(functionCodeBlockTag),
 	).withExpression(
 		func() *Expression { return &Expression{function: &Function{}} },
 	).listen(
@@ -39,6 +39,8 @@ func function() parser {
 				e.function.Name = te.token.Value
 			case functionParamTag:
 				e.function.Parameters = append(e.function.Parameters, te.parameter)
+			case functionCodeBlockTag:
+				e.function.CodeBlock = te.codeBlock
 			}
 		},
 	).withDebug("function")
