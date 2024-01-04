@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"github.com/llir/llvm/ir"
 	"github.com/rdidukh/pineapl/token"
 )
 
@@ -32,4 +33,9 @@ func parameter() parser {
 			}
 		},
 	).withDebug("parameter")
+}
+
+func (p *Parameter) toLlvmParam() *ir.Param {
+	typ := Type(p.Type).toIrType()
+	return ir.NewParam(p.Name, typ)
 }

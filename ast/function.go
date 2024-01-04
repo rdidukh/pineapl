@@ -50,14 +50,10 @@ func (f *Function) addToModule(m *ir.Module) {
 	params := []*ir.Param{}
 
 	for _, param := range f.Parameters {
-		typ := Type(param.Type).toIrType()
-		// TOOD: move to parameters.go
-		params = append(params, ir.NewParam(param.Name, typ))
+		params = append(params, param.toLlvmParam())
 	}
 
 	retType := types.I1
 
-	result := m.NewFunc(f.Name, retType, params...)
-
-	result.NewBlock("").NewRet(constant.NewInt(retType, 0))
+	m.NewFunc(f.Name, retType, params...).NewBlock("").NewRet(constant.NewInt(retType, 0))
 }
