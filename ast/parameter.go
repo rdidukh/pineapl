@@ -11,8 +11,8 @@ type Parameter struct {
 
 func parameter() parser {
 	const (
-		paramNameKey = 1
-		paramTypeKey = 2
+		paramNameKey = iota + 1
+		paramTypeKey
 	)
 	return allOf(
 		optionalToken(token.TYPE_WHITESPACE),

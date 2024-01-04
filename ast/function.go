@@ -14,8 +14,8 @@ type Function struct {
 
 func function() parser {
 	const (
-		functionNameKey  = 1
-		functionParamKey = 2
+		functionNameKey = iota + 1
+		functionParamKey
 	)
 
 	return allOf(
