@@ -1,6 +1,8 @@
 package ast
 
-import "strings"
+import (
+	"github.com/llir/llvm/ir"
+)
 
 type File struct {
 	Functions []*Function
@@ -23,10 +25,16 @@ func file() parser {
 		}).withDebug("file")
 }
 
-func (f *File) Codegen() (string, error) {
-	code := strings.Builder{}
-	for _, f := range f.Functions {
-		code.WriteString(f.codegen())
+func (f *File) addToModule(m *ir.Module) {
+	for _, fun := range f.Functions {
+		fun.addToModule(m)
 	}
-	return code.String(), nil
+}
+
+func (f *File) Codegen() (string, error) {
+	module := ir.NewModule()
+
+	f.addToModule(module)
+
+	return module.String(), nil
 }

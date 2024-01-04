@@ -1,9 +1,9 @@
 package ast
 
 import (
-	"fmt"
-	"strings"
-
+	"github.com/llir/llvm/ir"
+	"github.com/llir/llvm/ir/constant"
+	"github.com/llir/llvm/ir/types"
 	"github.com/rdidukh/pineapl/token"
 )
 
@@ -46,17 +46,18 @@ func function() parser {
 	).withDebug("function")
 }
 
-func (f *Function) codegen() string {
-	code := strings.Builder{}
+func (f *Function) addToModule(m *ir.Module) {
+	params := []*ir.Param{}
 
-	code.WriteString(fmt.Sprintf("define void @%s(", f.Name))
-	for i, param := range f.Parameters {
-		code.WriteString(fmt.Sprintf("%s %s", param.Type, param.Name))
-		if i+1 < len(f.Parameters) {
-			code.WriteString(", ")
-		}
+	for _, param := range f.Parameters {
+		typ := Type(param.Type).toIrType()
+		// TOOD: move to parameters.go
+		params = append(params, ir.NewParam(param.Name, typ))
 	}
-	code.WriteString(") {\n}\n")
 
-	return code.String()
+	retType := types.I1
+
+	result := m.NewFunc(f.Name, retType, params...)
+
+	result.NewBlock("").NewRet(constant.NewInt(retType, 0))
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/llir/llvm/ir"
 	"github.com/rdidukh/pineapl/logger"
 	"github.com/rdidukh/pineapl/token"
 )
@@ -179,5 +180,9 @@ func Codegen(code string) (string, error) {
 		return "", err
 	}
 
-	return file.Codegen()
+	module := ir.NewModule()
+
+	file.addToModule(module)
+
+	return module.String(), nil
 }

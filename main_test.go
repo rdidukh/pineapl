@@ -6,6 +6,8 @@ import (
 	"path"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestPineapl(t *testing.T) {
@@ -37,7 +39,7 @@ func TestPineapl(t *testing.T) {
 				want := string(wantBytes)
 
 				if got != want {
-					t.Errorf("TestPineapl \nGot:\n%v\nWant:\n%v", string(got), string(want))
+					t.Errorf("TestPineapl \nGot:\n%v\nWant:\n%v\nDiff:\n%s\n", string(got), string(want), cmp.Diff(string(got), string(want)))
 				}
 			})
 		}

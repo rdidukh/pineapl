@@ -1,2 +1,4 @@
-define void @main() {
+define i1 @main() {
+0:
+	ret i1 false
 }
